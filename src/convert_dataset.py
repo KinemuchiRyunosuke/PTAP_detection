@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('processed_dir', type=str)
 parser.add_argument('train_tfrecord_path', type=str)
 parser.add_argument('test_tfrecord_path', type=str)
-parser.add_argument('eval_tfrecord_path', type=str)
+parser.add_argument('eval_tfrecord_dir', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('n_pos_neg_path', type=str)
 parser.add_argument('--val_rate', type=float, default=0.2)
@@ -49,14 +49,18 @@ def main():
         x_train.append(x[boundary:])
         y_train.append(y[boundary:])
 
+    # 評価用データセットとして保存
+    for i, data in enumerate(json_data):
+        virusname = data['virus'].replace(' ', '_')
+        path = os.path.join(args.eval_tfrecord_dir, f'eval_{virusname}.tfrecord')
+
+        write_tfrecord(x_test[i], y_test[i], path)
+
     x_test, x_train = np.vstack(x_test), np.vstack(x_train)
     y_test, y_train = np.hstack(y_test), np.hstack(y_train)
 
     x_train, x_test = vocab.encode(x_train), vocab.encode(x_test)
     x_train, x_test = add_class_token(x_train), add_class_token(x_test)
-
-    # 評価用データセットとして保存
-    write_tfrecord(x_test, y_test, args.eval_tfrecord_path)
 
     # undersamplingの比率の計算(陰性を1/10に減らす)
     n_positive = (y_train == 1).sum()

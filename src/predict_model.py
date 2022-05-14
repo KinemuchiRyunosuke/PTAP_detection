@@ -1,11 +1,12 @@
 import argparse
+import os
 import numpy as np
 import tensorflow as tf
 import pickle
+import json
 
 from models.transformer import BinaryClassificationTransformer
 from scipy.optimize import minimize
-from sklearn.metrics import precision_score, recall_score, confusion_matrix
 
 from features.preprocessing import Vocab, load_dataset
 from utils import calc_f_beta_score
@@ -25,7 +26,7 @@ parser.add_argument('lr', type=float)
 parser.add_argument('beta', type=float)
 
 parser.add_argument('checkpoint_path', type=str)
-parser.add_argument('eval_tfrecord_path', type=str)
+parser.add_argument('eval_tfrecord_dir', type=str)
 parser.add_argument('test_tfrecord_path', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('result_path', type=str)
@@ -35,6 +36,10 @@ args = parser.parse_args()
 
 
 def main():
+    json_path = 'references/PTAP_data.json'
+    with open(json_path, 'r') as f:
+       json_data = json.load(f)
+
     model = create_model()
     model.load_weights(args.checkpoint_path)
 
@@ -55,41 +60,54 @@ def main():
     result = minimize(f_beta_opt, x0=np.array([0.5]), method='Nelder-Mead')
     best_threshold = result['x'].item()
 
-    # 最適な閾値で評価
-    eval_ds = load_dataset(args.eval_tfrecord_path,
-                            batch_size=args.batch_size,
-                            length=args.length+1)
+    result_dict = {'best_threshold': best_threshold, 'results': []}
+    for data in json_data:
+        virusname = data['virus'].replace(' ', '_')
+        eval_ds_path = os.path.join(args.eval_tfrecord_dir,
+                    f"eval_{virusname}.tfrecord")
+        fp_path = os.path.join(args.false_positive_dir,
+                    f"fp_{virusname}.json")
 
-    ys_pred = model.predict(eval_ds)
-    ys_pred = np.squeeze(ys_pred)
-    cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
-    precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
-    recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+        # 最適な閾値で評価
+        eval_ds = load_dataset(eval_ds_path,
+                               batch_size=args.batch_size,
+                               length=args.length+1)
 
-    # 評価結果を保存
+        ys_pred = model.predict(eval_ds)
+        ys_pred = np.squeeze(ys_pred)
+        cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
+        precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
+        recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+
+        # 評価結果を保存
+        result_dict['results'].append(
+            {
+             'virus': virusname,
+             'precision': precision,
+             'recall': recall,
+             'confusion_matrix': cm,
+            }
+        )
+
+        with open(args.vocab_path, 'rb') as f:
+            tokenizer = pickle.load(f)
+        vocab = Vocab(tokenizer)
+
+        # 偽陽性データを保存
+        for i, (x, y_true) in enumerate(eval_ds):
+            y_true = y_true.numpy()
+            y_pred = ys_pred[i:(i + y_true.shape[0])]
+            y_pred = (y_pred >= best_threshold).astype(int)
+
+            x_fp = x[(y_true == 0) & (y_pred == 1)]
+            x_fp = vocab.decode(x_fp, class_token=True)
+
+            with open(fp_path, 'a') as f:
+                x_fp.dump(x_fp, f, indent=2)
+
     with open(args.result_path, 'w') as f:
-        print(f'best threshold: {best_threshold}', file=f)
-        print('confusion matrix:')
-        print(cm, file=f)
-        print(f'precision: {precision}', file=f)
-        print(f'recall: {recall}', file=f)
+        json.dump(result_dict, f, indent=2)
 
-    with open(args.vocab_path, 'rb') as f:
-        tokenizer = pickle.load(f)
-    vocab = Vocab(tokenizer)
-
-    # 偽陽性データを保存
-    for i, (x, y_true) in enumerate(eval_ds):
-        y_true = y_true.numpy()
-        y_pred = ys_pred[i:(i + y_true.shape[0])]
-        y_pred = (y_pred >= best_threshold).astype(int)
-
-        x_fp = x[(y_true == 0) & (y_pred == 1)]
-        x_fp = vocab.decode(x_fp, class_token=True)
-
-        with open(args.false_positive_path, 'a') as f:
-            for seq in x_fp:
-                print(seq, file=f)
 
 def create_model():
     """ モデルを定義する """
