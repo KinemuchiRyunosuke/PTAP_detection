@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('processed_dir', type=str)
 parser.add_argument('train_tfrecord_path', type=str)
 parser.add_argument('test_tfrecord_path', type=str)
-parser.add_argument('eval_ds_path', type=str)
+parser.add_argument('eval_tfrecord_path', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('n_pos_neg_path', type=str)
 parser.add_argument('--val_rate', type=float, default=0.2)
@@ -56,9 +56,7 @@ def main():
     x_train, x_test = add_class_token(x_train), add_class_token(x_test)
 
     # 評価用データセットとして保存
-    with open(args.eval_ds_path, 'wb') as f:
-        pickle.dump(x_test, f)
-        pickle.dump(y_test, f)
+    write_tfrecord(x_test, y_test, args.eval_tfrecord_path)
 
     # undersamplingの比率の計算(陰性を1/10に減らす)
     n_positive = (y_train == 1).sum()

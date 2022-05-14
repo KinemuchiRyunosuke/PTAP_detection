@@ -7,7 +7,7 @@ from models.transformer import BinaryClassificationTransformer
 from scipy.optimize import minimize
 from sklearn.metrics import precision_score, recall_score, confusion_matrix
 
-from features.preprocessing import Vocab
+from features.preprocessing import Vocab, load_dataset
 from utils import calc_f_beta_score
 
 
@@ -25,7 +25,8 @@ parser.add_argument('lr', type=float)
 parser.add_argument('beta', type=float)
 
 parser.add_argument('checkpoint_path', type=str)
-parser.add_argument('eval_ds_path', type=str)
+parser.add_argument('eval_tfrecord_path', type=str)
+parser.add_argument('test_tfrecord_path', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('result_path', type=str)
 parser.add_argument('false_positive_path', type=str)
@@ -37,35 +38,39 @@ def main():
     model = create_model()
     model.load_weights(args.checkpoint_path)
 
-    with open(args.eval_ds_path, 'rb') as f:
-        x_eval = pickle.load(f)
-        y_eval = pickle.load(f)
+    test_ds = load_dataset(args.test_tfrecord_path,
+                            batch_size=args.batch_size,
+                            length=args.length+1)
 
-    y_pred = model.predict(x_eval)
-    y_pred = np.squeeze(y_pred)
+    ys_pred = model.predict(test_ds)
+    ys_pred = np.squeeze(ys_pred)
 
     # 閾値を最適化
     def f_beta_opt(threshold):
-        precision = precision_score(y_eval, y_pred >= threshold)
-        recall = recall_score(y_eval, y_pred >= threshold)
+        cm = calc_confusion_matrix(ys_pred, test_ds, threshold)
+        precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
+        recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
         return -calc_f_beta_score(precision, recall, beta=args.beta)
 
     result = minimize(f_beta_opt, x0=np.array([0.5]), method='Nelder-Mead')
     best_threshold = result['x'].item()
 
-    y_pred = model.predict(x_eval)
-    y_pred = np.squeeze(y_pred)
-    y_pred = y_pred >= best_threshold
+    # 最適な閾値で評価
+    eval_ds = load_dataset(args.eval_tfrecord_path,
+                            batch_size=args.batch_size,
+                            length=args.length+1)
 
+    ys_pred = model.predict(eval_ds)
+    ys_pred = np.squeeze(ys_pred)
+    cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
+    precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
+    recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+
+    # 評価結果を保存
     with open(args.result_path, 'w') as f:
         print(f'best threshold: {best_threshold}', file=f)
-
-        cm = confusion_matrix(y_eval, y_pred)
         print('confusion matrix:')
         print(cm, file=f)
-
-        precision = precision_score(y_eval, y_pred)
-        recall = recall_score(y_eval, y_pred)
         print(f'precision: {precision}', file=f)
         print(f'recall: {recall}', file=f)
 
@@ -74,12 +79,17 @@ def main():
     vocab = Vocab(tokenizer)
 
     # 偽陽性データを保存
-    x_fp = x_eval[(y_pred == 1) & (y_eval == 0)]
-    x_fp = vocab.decode(x_fp, class_token=True)
-    with open(args.false_positive_path, 'w') as f:
-        for x in x_fp:
-            print(x, file=f)
+    for i, (x, y_true) in enumerate(eval_ds):
+        y_true = y_true.numpy()
+        y_pred = ys_pred[i:(i + y_true.shape[0])]
+        y_pred = (y_pred >= best_threshold).astype(int)
 
+        x_fp = x[(y_true == 0) & (y_pred == 1)]
+        x_fp = vocab.decode(x_fp, class_token=True)
+
+        with open(args.false_positive_path, 'a') as f:
+            for seq in x_fp:
+                print(seq, file=f)
 
 def create_model():
     """ モデルを定義する """
@@ -94,6 +104,20 @@ def create_model():
                  loss='binary_crossentropy')
 
     return model
+
+def calc_confusion_matrix(ys_pred, ds, threshold):
+    cm = np.zeros((2, 2)).astype(int)
+    for i, (_, y_true) in enumerate(ds):
+        y_true = y_true.numpy()
+        y_pred = ys_pred[i:(i + y_true.shape[0])]
+        y_pred = (y_pred >= threshold).astype(int)
+
+        cm[0, 0] += ((y_true == 0) & (y_pred == 0)).astype(int).sum()
+        cm[0, 1] += ((y_true == 0) & (y_pred == 1)).astype(int).sum()
+        cm[1, 0] += ((y_true == 1) & (y_pred == 0)).astype(int).sum()
+        cm[1, 1] += ((y_true == 1) & (y_pred == 1)).astype(int).sum()
+
+    return cm
 
 
 if __name__ == '__main__':

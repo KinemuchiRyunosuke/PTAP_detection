@@ -23,7 +23,7 @@ PROCESSED = $(INPUT:data/interim/%.fasta=data/processed/%.pickle)
 VOCAB_FILE = references/vocab.pickle
 TRAIN_TFRECORD = $(tfrecord_dir)/train_dataset.tfrecord
 TEST_TFRECORD = $(tfrecord_dir)/test_dataset.tfrecord
-EVAL_DS = $(processed_dir)/eval_dataset.pickle
+EVAL_TFRECORD = $(processed_dir)/eval_dataset.tfrecord
 CLASS_WEIGHT = references/n_positive_negative.json
 TRAINED_MODEL = models/saved_model.pb
 RESULT = reports/result/evaluation.txt
@@ -37,22 +37,22 @@ $(PROCESSED): $(INPUT)
 
 $(TRAIN_TFRECORD): $(PROCESSED) $(VOCAB_FILE)
 	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(EVAL_DS) $(VOCAB_FILE) $(CLASS_WEIGHT) \
+		$(TEST_TFRECORD) $(EVAL_TFRECORD) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate)
 
 $(TEST_TFRECORD): $(PROCESSED) $(VOCAB_FILE)
 	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(EVAL_DS) $(VOCAB_FILE) $(CLASS_WEIGHT) \
+		$(TEST_TFRECORD) $(EVAL_TFRECORD) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate)
 
 $(CLASS_WEIGHT): $(PROCESSED) $(VOCAB_FILE)
 	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(EVAL_DS) $(VOCAB_FILE) $(CLASS_WEIGHT) \
+		$(TEST_TFRECORD) $(EVAL_TFRECORD) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate)
 
-$(EVAL_DS): $(PROCESSED) $(VOCAB_FILE)
+$(EVAL_TFRECORD): $(PROCESSED) $(VOCAB_FILE)
 	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(EVAL_DS) $(VOCAB_FILE) $(CLASS_WEIGHT) \
+		$(TEST_TFRECORD) $(EVAL_TFRECORD) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate)
 
 $(VOCAB_FILE): $(PROCESSED)
@@ -64,14 +64,14 @@ $(TRAINED_MODEL): $(TRAIN_TFRECORD) $(TEST_TFRECORD) $(CLASS_WEIGHT)
 		$(lr) $(val_threshold) $(model_dir) $(TEST_TFRECORD) \
 		$(model_dir) $(CLASS_WEIGHT)
 
-$(RESULT): $(EVAL_DS) $(TRAINED_MODEL)
+$(RESULT): $(EVAL_TFRECORD) $(TRAINED_MODEL)
 	python3 src/predict_model.py $(length) $(batch_size) $(num_words) \
 		$(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(beta) $(model_dir) $(EVAL_DS) $(VOCAB_FILE) \
-		$(RESULT) $(FALSE_POSITIVE)
+		$(lr) $(beta) $(model_dir) $(EVAL_TFRECORD) $(TEST_TFRECORD) \
+		$(VOCAB_FILE) $(RESULT) $(FALSE_POSITIVE)
 
-$(FALSE_POSITIVE): $(EVAL_DS) $(TRAINED_MODEL)
+$(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL)
 	python3 src/predict_model.py $(length) $(batch_size) $(num_words) \
 		$(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(beta) $(model_dir) $(EVAL_DS) $(VOCAB_FILE) \
+		$(lr) $(beta) $(model_dir) $(EVAL_TFRECORD) $(VOCAB_FILE) \
 		$(RESULT) $(FALSE_POSITIVE)
