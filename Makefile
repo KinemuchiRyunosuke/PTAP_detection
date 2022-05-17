@@ -13,22 +13,22 @@ hidden_dim = 128        # 単語ベクトルの次元数
 lr = 0.001              # 学習率
 beta = 0.5				# Fベータスコアの引数
 
-fasta_dir = data/interim/
-processed_dir = data/processed/
-tfrecord_dir = data/tfrecord/
-model_dir = models/
-result_dir = reports/result/
+fasta_dir = data/interim
+processed_dir = data/processed
+tfrecord_dir = data/tfrecord
+model_dir = models
+result_dir = reports/result
 
 INPUT = $(wildcard data/interim/*.fasta)
 PROCESSED = $(INPUT:data/interim/%.fasta=data/processed/%.pickle)
 VOCAB_FILE = references/vocab.pickle
 TRAIN_TFRECORD = $(tfrecord_dir)/train_dataset.tfrecord
 TEST_TFRECORD = $(tfrecord_dir)/test_dataset.tfrecord
-EVAL_TFRECORD = $(tfrecord_dir)/$(INPUT:eval_%.tfrecord=data/processed/&.pickle)
+EVAL_TFRECORD = $(INPUT:data/interim/%.fasta=$(tfrecord_dir)/eval_%.tfrecord)
 CLASS_WEIGHT = references/n_positive_negative.json
 TRAINED_MODEL = models/saved_model.pb
 RESULT = reports/result/evaluation.json
-FALSE_POSITIVE = reports/result/$(INPUT:fp_%.json=data/processed/&.pickle)
+FALSE_POSITIVE = $(INPUT:data/interim/%.fasta=$(result_dir)/fp_%.txt)
 
 
 all: $(RESULT) $(FALSE_POSITIVE)
@@ -63,7 +63,7 @@ $(VOCAB_FILE): $(PROCESSED)
 $(TRAINED_MODEL): $(TRAIN_TFRECORD) $(TEST_TFRECORD) $(CLASS_WEIGHT)
 	python3 src/train_model.py $(length) $(num_words) $(batch_size) \
 		$(epochs) $(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(val_threshold) $(model_dir) $(TEST_TFRECORD) \
+		$(lr) $(val_threshold) $(TRAIN_TFRECORD) $(TEST_TFRECORD) \
 		$(model_dir) $(CLASS_WEIGHT)
 
 $(RESULT): $(EVAL_TFRECORD) $(TRAINED_MODEL)

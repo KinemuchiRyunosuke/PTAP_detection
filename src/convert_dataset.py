@@ -42,12 +42,23 @@ def main():
             x = pickle.load(f)
             y = pickle.load(f)
 
+        np.random.seed(1)
+        np.random.shuffle(x)
+        np.random.seed(1)
+        np.random.shuffle(y)
+
         # データセットを学習用と検証用に分割
         boundary = math.floor(len(x) * args.val_rate)
         x_test.append(x[:boundary])
         y_test.append(y[:boundary])
         x_train.append(x[boundary:])
         y_train.append(y[boundary:])
+
+    for i, data in enumerate(json_data):
+        x_train[i] = vocab.encode(x_train[i])
+        x_test[i]  = vocab.encode(x_test[i])
+        x_train[i] = add_class_token(x_train[i])
+        x_test[i] = add_class_token(x_test[i])
 
     # 評価用データセットとして保存
     for i, data in enumerate(json_data):
@@ -58,9 +69,6 @@ def main():
 
     x_test, x_train = np.vstack(x_test), np.vstack(x_train)
     y_test, y_train = np.hstack(y_test), np.hstack(y_train)
-
-    x_train, x_test = vocab.encode(x_train), vocab.encode(x_test)
-    x_train, x_test = add_class_token(x_train), add_class_token(x_test)
 
     # undersamplingの比率の計算(陰性を1/10に減らす)
     n_positive = (y_train == 1).sum()

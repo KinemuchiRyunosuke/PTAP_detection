@@ -30,7 +30,7 @@ parser.add_argument('eval_tfrecord_dir', type=str)
 parser.add_argument('test_tfrecord_path', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('result_path', type=str)
-parser.add_argument('false_positive_path', type=str)
+parser.add_argument('false_positive_dir', type=str)
 
 args = parser.parse_args()
 
@@ -53,8 +53,8 @@ def main():
     # 閾値を最適化
     def f_beta_opt(threshold):
         cm = calc_confusion_matrix(ys_pred, test_ds, threshold)
-        precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
-        recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+        precision = calc_precision(cm)
+        recall = calc_recall(cm)
         return -calc_f_beta_score(precision, recall, beta=args.beta)
 
     result = minimize(f_beta_opt, x0=np.array([0.5]), method='Nelder-Mead')
@@ -76,8 +76,8 @@ def main():
         ys_pred = model.predict(eval_ds)
         ys_pred = np.squeeze(ys_pred)
         cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
-        precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
-        recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+        precision = calc_precision(cm)
+        recall = calc_recall(cm)
 
         # 評価結果を保存
         result_dict['results'].append(
@@ -85,7 +85,7 @@ def main():
              'virus': virusname,
              'precision': precision,
              'recall': recall,
-             'confusion_matrix': cm,
+             'confusion_matrix': cm.tolist(),
             }
         )
 
@@ -96,14 +96,16 @@ def main():
         # 偽陽性データを保存
         for i, (x, y_true) in enumerate(eval_ds):
             y_true = y_true.numpy()
+            y_true = np.squeeze(y_true)
             y_pred = ys_pred[i:(i + y_true.shape[0])]
             y_pred = (y_pred >= best_threshold).astype(int)
 
             x_fp = x[(y_true == 0) & (y_pred == 1)]
             x_fp = vocab.decode(x_fp, class_token=True)
 
-            with open(fp_path, 'a') as f:
-                x_fp.dump(x_fp, f, indent=2)
+            for seq in x_fp:
+                with open(fp_path, 'a') as f:
+                    print(seq, file=f)
 
     with open(args.result_path, 'w') as f:
         json.dump(result_dict, f, indent=2)
@@ -127,6 +129,7 @@ def calc_confusion_matrix(ys_pred, ds, threshold):
     cm = np.zeros((2, 2)).astype(int)
     for i, (_, y_true) in enumerate(ds):
         y_true = y_true.numpy()
+        y_true = np.squeeze(y_true)
         y_pred = ys_pred[i:(i + y_true.shape[0])]
         y_pred = (y_pred >= threshold).astype(int)
 
@@ -136,6 +139,20 @@ def calc_confusion_matrix(ys_pred, ds, threshold):
         cm[1, 1] += ((y_true == 1) & (y_pred == 1)).astype(int).sum()
 
     return cm
+
+def calc_precision(cm):
+    if cm[1, 1] != 0:
+        precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
+    else:
+        precision = 0
+    return precision
+
+def calc_recall(cm):
+    if cm[1, 1] != 0:
+        recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+    else:
+        recall = 0
+    return recall
 
 
 if __name__ == '__main__':
