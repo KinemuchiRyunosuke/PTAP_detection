@@ -1,5 +1,6 @@
 import os
 import argparse
+from xml.etree.ElementInclude import default_loader
 import numpy as np
 import pickle
 import json
@@ -19,6 +20,7 @@ parser.add_argument('eval_tfrecord_dir', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('n_pos_neg_path', type=str)
 parser.add_argument('--val_rate', type=float, default=0.2)
+parser.add_argument('--seed', type=int, default=1)
 
 args = parser.parse_args()
 
@@ -35,37 +37,35 @@ def main():
     x_train, y_train, x_test, y_test = [], [], [], []
     for data in json_data:
         virusname = data['virus'].replace(' ', '_')
+        dataset_dir = os.path.join(args.processed_dir, virusname)
 
-        # アミノ酸断片データセットを読み込み
-        processed_path = os.path.join(args.processed_dir, f'{virusname}.pickle')
-        with open(processed_path, 'rb') as f:
-            x = pickle.load(f)
-            y = pickle.load(f)
+        for protein in data['proteins'].keys():
+            # アミノ酸断片データセットを読み込み
+            processed_path = os.path.join(dataset_dir, f'{protein}.pickle')
+            with open(processed_path, 'rb') as f:
+                x = pickle.load(f)
+                y = pickle.load(f)
 
-        np.random.seed(1)
-        np.random.shuffle(x)
-        np.random.seed(1)
-        np.random.shuffle(y)
+            x = vocab.encode(x)
+            x = add_class_token(x)
 
-        # データセットを学習用と検証用に分割
-        boundary = math.floor(len(x) * args.val_rate)
-        x_test.append(x[:boundary])
-        y_test.append(y[:boundary])
-        x_train.append(x[boundary:])
-        y_train.append(y[boundary:])
+            np.random.seed(args.seed)
+            np.random.shuffle(x)
+            np.random.seed(args.seed)
+            np.random.shuffle(y)
 
-    for i, data in enumerate(json_data):
-        x_train[i] = vocab.encode(x_train[i])
-        x_test[i]  = vocab.encode(x_test[i])
-        x_train[i] = add_class_token(x_train[i])
-        x_test[i] = add_class_token(x_test[i])
+            # データセットを学習用と検証用に分割
+            boundary = math.floor(len(x) * args.val_rate)
 
-    # 評価用データセットとして保存
-    for i, data in enumerate(json_data):
-        virusname = data['virus'].replace(' ', '_')
-        path = os.path.join(args.eval_tfrecord_dir, f'eval_{virusname}.tfrecord')
+            # 評価用データセットとしてunder-samplingしていないデータを残しておく
+            eval_tfrecord_path = os.path.join(os.path.join(
+                    args.eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
+            write_tfrecord(x[:boundary], y[:boundary], eval_tfrecord_path)
 
-        write_tfrecord(x_test[i], y_test[i], path)
+            x_test.append(x[:boundary])
+            y_test.append(y[:boundary])
+            x_train.append(x[boundary:])
+            y_train.append(y[boundary:])
 
     x_test, x_train = np.vstack(x_test), np.vstack(x_train)
     y_test, y_train = np.hstack(y_test), np.hstack(y_train)
@@ -88,13 +88,13 @@ def main():
                             sampling_strategy=1.0)
 
     # シャッフル
-    np.random.seed(1)
+    np.random.seed(args.seed)
     np.random.shuffle(x_test)
-    np.random.seed(1)
+    np.random.seed(args.seed)
     np.random.shuffle(y_test)
-    np.random.seed(1)
+    np.random.seed(args.seed)
     np.random.shuffle(x_train)
-    np.random.seed(1)
+    np.random.seed(args.seed)
     np.random.shuffle(y_train)
 
     # tf.data.Datasetに変換

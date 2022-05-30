@@ -35,11 +35,13 @@ def main():
     for data in json_data:
         virusname = data['virus'].replace(' ', '_')
 
-        dataset_path = os.path.join(args.dataset_dir, f'{virusname}.pickle')
-        with open(dataset_path, 'rb') as f:
-            x = pickle.load(f)
+        for protein in data['proteins'].keys():
+            dataset_path = os.path.join(os.path.join(
+                    args.dataset_dir, virusname), f'{protein}.pickle')
+            with open(dataset_path, 'rb') as f:
+                x = pickle.load(f)
 
-        vocab.fit(x)
+            vocab.fit(x)
 
     tokenizer = vocab.tokenizer
     with open(args.vocab_path, 'wb') as f:

@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('length', help="Amino acids are fragmentated by this length.",
                     type=int)
+parser.add_argument('virus', type=str)
 parser.add_argument('fasta_dir', help="Path to FASTA files.",
                     type=str)
 parser.add_argument('out_dir', help="Path to output files.",
@@ -26,29 +27,35 @@ def main():
     with open(json_path, 'r') as f:
         json_data = json.load(f)
 
-    for data in json_data:
-        virusname = data['virus'].replace(' ', '_')
+    # 対象となるウイルスのJSONデータを取得
+    data = None
+    for content in json_data:
+        if content['virus'].replace(' ', '_') == args.virus:
+            data = content
+            break
 
-        fasta_path = os.path.join(args.fasta_dir, f'{virusname}.fasta')
+    fasta_path = os.path.join(args.fasta_dir, f'{args.virus}.fasta')
+    records = extract(fasta_path)
 
-        records = extract(fasta_path)
-        dataset_maker = Dataset(
-                SLiM=data['SLiM'],
-                idx=data['start_index'],
-                length=args.length,
-                proteins=data['proteins'],
-                SLiM_proteins=data['SLiM_proteins'],
-                neighbor=data['neighbor'],
-                replacement_tolerance=data['replacement_tolerance'],
-                threshold=len(data['SLiM']),
-                n_gram=args.n_gram)
+    dataset_maker = Dataset(
+            SLiM=data['SLiM'],
+            idx=data['start_index'],
+            length=args.length,
+            proteins=data['proteins'],
+            SLiM_proteins=data['SLiM_proteins'],
+            neighbor=data['neighbor'],
+            replacement_tolerance=data['replacement_tolerance'],
+            threshold=len(data['SLiM']),
+            n_gram=args.n_gram)
 
-        x, y = dataset_maker.make_dataset(records, dict=False)
+    dataset = dataset_maker.make_dataset(records, dict=True)
 
-        out_path = os.path.join(args.out_dir, f'{virusname}.pickle')
+    for protein, (x, y) in dataset.items():
+        out_path = os.path.join(args.out_dir, f'{protein}.pickle')
         with open(out_path, 'wb') as f:
             pickle.dump(x, f)
             pickle.dump(y, f)
+
 
 if __name__ == '__main__':
     main()

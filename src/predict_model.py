@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import pickle
 import json
+import pandas as pd
 
 from models.transformer import BinaryClassificationTransformer
 from scipy.optimize import minimize
@@ -60,55 +61,50 @@ def main():
     result = minimize(f_beta_opt, x0=np.array([0.5]), method='Nelder-Mead')
     best_threshold = result['x'].item()
 
-    result_dict = {'best_threshold': best_threshold, 'results': []}
+    df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fn', 'fp', 'tp'])
     for data in json_data:
         virusname = data['virus'].replace(' ', '_')
-        eval_ds_path = os.path.join(args.eval_tfrecord_dir,
-                    f"eval_{virusname}.tfrecord")
-        fp_path = os.path.join(args.false_positive_dir,
-                    f"fp_{virusname}.json")
 
-        # 最適な閾値で評価
-        eval_ds = load_dataset(eval_ds_path,
-                               batch_size=args.batch_size,
-                               length=args.length+1)
+        for protein in data['proteins']:
+            eval_ds_path = os.path.join(os.path.join(
+                    args.eval_tfrecord_dir, virusname),
+                    f'{protein}.tfrecord')
+            fp_path = os.path.join(os.path.join(
+                args.false_positive_dir, virusname), f'{protein}.txt')
 
-        ys_pred = model.predict(eval_ds)
-        ys_pred = np.squeeze(ys_pred)
-        cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
-        precision = calc_precision(cm)
-        recall = calc_recall(cm)
+            # 最適な閾値で評価
+            eval_ds = load_dataset(eval_ds_path,
+                                   batch_size=args.batch_size,
+                                   length=args.length+1)
 
-        # 評価結果を保存
-        result_dict['results'].append(
-            {
-             'virus': virusname,
-             'precision': precision,
-             'recall': recall,
-             'confusion_matrix': cm.tolist(),
-            }
-        )
+            ys_pred = model.predict(eval_ds)
+            ys_pred = np.squeeze(ys_pred)
+            cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
 
-        with open(args.vocab_path, 'rb') as f:
-            tokenizer = pickle.load(f)
-        vocab = Vocab(tokenizer)
+            # 評価結果をDataFrameに保存
+            row = pd.Series([virusname, protein,
+                    cm[0,0], cm[0,1], cm[1,0], cm[1,1]], index=df.columns)
+            df = df.append(row, ignore_index=True)
 
-        # 偽陽性データを保存
-        for i, (x, y_true) in enumerate(eval_ds):
-            y_true = y_true.numpy()
-            y_true = np.squeeze(y_true)
-            y_pred = ys_pred[i:(i + y_true.shape[0])]
-            y_pred = (y_pred >= best_threshold).astype(int)
+            with open(args.vocab_path, 'rb') as f:
+                tokenizer = pickle.load(f)
+            vocab = Vocab(tokenizer)
 
-            x_fp = x[(y_true == 0) & (y_pred == 1)]
-            x_fp = vocab.decode(x_fp, class_token=True)
+            # 偽陽性データを保存
+            for i, (x, y_true) in enumerate(eval_ds):
+                y_true = y_true.numpy()
+                y_true = np.squeeze(y_true)
+                y_pred = ys_pred[i:(i + y_true.shape[0])]
+                y_pred = (y_pred >= best_threshold).astype(int)
 
-            for seq in x_fp:
-                with open(fp_path, 'a') as f:
-                    print(seq, file=f)
+                x_fp = x[(y_true == 0) & (y_pred == 1)]
+                x_fp = vocab.decode(x_fp, class_token=True)
 
-    with open(args.result_path, 'w') as f:
-        json.dump(result_dict, f, indent=2)
+                for seq in x_fp:
+                    with open(fp_path, 'a') as f:
+                        print(seq, file=f)
+
+    df.to_csv(args.result_path)
 
 
 def create_model():
