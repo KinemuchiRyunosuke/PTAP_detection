@@ -1,16 +1,15 @@
-length = 24
+length = 30
 n_gram = True
 val_rate = 0.2
 num_words = 25
 batch_size = 1024
 epochs = 50
-val_threshold = 0.5     # 検証用データに対する陽性・陰性の閾値
-threshold = 0.99        # モデルの評価を行うときの陽性・陰性の閾値
+threshold = 0.5         # 陽性・陰性の閾値
 head_num = 8            # Transformerの並列化に関するパラメータ
-dropout_rate = 0.1
-hopping_num = 4         # Multi-Head Attentionを施す回数
-hidden_dim = 128        # 単語ベクトルの次元数
-lr = 0.001              # 学習率
+dropout_rate = 0.239
+hopping_num = 6         # Multi-Head Attentionを施す回数
+hidden_dim = 736        # 単語ベクトルの次元数
+lr = 1.52e-5            # 学習率
 beta = 0.5				# Fベータスコアの引数
 seed = 1				# データセットをシャッフルするときのseed値
 
@@ -62,9 +61,12 @@ $(TEST_TFRECORD): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
 		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate) --seed $(seed)
 
+$(EVAL_TFRECORD_DIR):
+	mkdir -p $@
+
 $(EVAL_TFRECORD): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
 	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
+		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate) --seed $(seed)
 
 $(CLASS_WEIGHT): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
@@ -72,19 +74,39 @@ $(CLASS_WEIGHT): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
 		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
 		--val_rate $(val_rate) --seed $(seed)
 
+$(TRAINED_MODEL): $(TRAIN_TFRECORD) $(TEST_TFRECORD) $(CLASS_WEIGHT)
+	python3 src/train_model.py $(length) $(num_words) $(batch_size) \
+		$(epochs) $(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
+		$(lr) $(threshold) $(TRAIN_TFRECORD) $(TEST_TFRECORD) \
+		$(model_dir) $(CLASS_WEIGHT)
+
 $(FALSE_POSITIVE_DIR): $(EVAL_TFRECORD_DIR)
 	mkdir -p $@
 
 $(RESULT): $(EVAL_TFRECORD) $(TRAINED_MODEL) $(FALSE_POSITIVE_DIR)
 	python3 src/predict_model.py $(length) $(batch_size) $(num_words) \
 		$(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(beta) $(model_dir) $(eval_tfrecord_dir) $(TEST_TFRECORD) \
-		$(VOCAB_FILE) $(RESULT) $(false_positive_dir)
+		$(lr) $(beta) $(threshold) $(model_dir) $(eval_tfrecord_dir) \
+		$(TEST_TFRECORD) $(VOCAB_FILE) $(RESULT) $(false_positive_dir)
 	touch $(FALSE_POSITIVE)
 
 $(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL) $(FALSE_POSITIVE_DIR)
 	python3 src/predict_model.py $(length) $(batch_size) $(num_words) \
 		$(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(beta) $(model_dir) $(eval_tfrecord_dir) $(TEST_TFRECORD) \
-		$(VOCAB_FILE) $(RESULT) $(false_positive_dir)
+		$(lr) $(beta) $(threshold) $(model_dir) $(eval_tfrecord_dir) \
+		$(TEST_TFRECORD) $(VOCAB_FILE) $(RESULT) $(false_positive_dir)
 	touch $(FALSE_POSITIVE)
+
+
+clear:
+	find data/processed/ | grep -v -x 'data/processed/' | \
+		grep -v '.gitkeep' | xargs rm -rf
+	find data/tfrecord/ | grep -v -x 'data/tfrecord/' | \
+		grep -v '.gitkeep' | xargs rm -rf
+	rm -f $(VOCAB_FILE)
+	rm -f $(CLASS_WEIGHT)
+	find models/ | grep -v -x 'models/' | grep -v '.gitkeep' | \
+		xargs rm -rf
+	rm -f $(RESULT)
+	find reports/result/ | grep -v -x 'reports/result/' | \
+		grep -v '.gitkeep' | xargs rm -rf
