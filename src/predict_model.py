@@ -7,10 +7,8 @@ import json
 import pandas as pd
 
 from models.transformer import BinaryClassificationTransformer
-from scipy.optimize import minimize
 
 from features.preprocessing import Vocab, load_dataset
-from utils import calc_f_beta_score
 
 
 # コマンドライン引数を取得
@@ -25,6 +23,7 @@ parser.add_argument('hidden_dim', type=int)
 parser.add_argument('dropout_rate', type=float)
 parser.add_argument('lr', type=float)
 parser.add_argument('beta', type=float)
+parser.add_argument('threshold', type=float)
 
 parser.add_argument('checkpoint_path', type=str)
 parser.add_argument('eval_tfrecord_dir', type=str)
@@ -51,16 +50,6 @@ def main():
     ys_pred = model.predict(test_ds)
     ys_pred = np.squeeze(ys_pred)
 
-    # 閾値を最適化
-    def f_beta_opt(threshold):
-        cm = calc_confusion_matrix(ys_pred, test_ds, threshold)
-        precision = calc_precision(cm)
-        recall = calc_recall(cm)
-        return -calc_f_beta_score(precision, recall, beta=args.beta)
-
-    result = minimize(f_beta_opt, x0=np.array([0.5]), method='Nelder-Mead')
-    best_threshold = result['x'].item()
-
     df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fn', 'fp', 'tp'])
     for data in json_data:
         virusname = data['virus'].replace(' ', '_')
@@ -79,7 +68,7 @@ def main():
 
             ys_pred = model.predict(eval_ds)
             ys_pred = np.squeeze(ys_pred)
-            cm = calc_confusion_matrix(ys_pred, eval_ds, best_threshold)
+            cm = calc_confusion_matrix(ys_pred, eval_ds, args.threshold)
 
             # 評価結果をDataFrameに保存
             row = pd.Series([virusname, protein,
@@ -95,7 +84,7 @@ def main():
                 y_true = y_true.numpy()
                 y_true = np.squeeze(y_true)
                 y_pred = ys_pred[i:(i + y_true.shape[0])]
-                y_pred = (y_pred >= best_threshold).astype(int)
+                y_pred = (y_pred >= args.threshold).astype(int)
 
                 x_fp = x[(y_true == 0) & (y_pred == 1)]
                 x_fp = vocab.decode(x_fp, class_token=True)
