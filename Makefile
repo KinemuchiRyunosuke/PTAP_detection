@@ -1,4 +1,4 @@
-length = 30
+length = 26
 n_gram = True
 val_rate = 0.2
 num_words = 25
@@ -6,10 +6,10 @@ batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
 head_num = 8            # Transformerの並列化に関するパラメータ
-dropout_rate = 0.239
-hopping_num = 6         # Multi-Head Attentionを施す回数
-hidden_dim = 736        # 単語ベクトルの次元数
-lr = 1.52e-5            # 学習率
+dropout_rate = 0.04
+hopping_num = 2         # Multi-Head Attentionを施す回数
+hidden_dim = 904        # 単語ベクトルの次元数
+lr = 2.03e-5            # 学習率
 beta = 0.5				# Fベータスコアの引数
 seed = 1				# データセットをシャッフルするときのseed値
 
