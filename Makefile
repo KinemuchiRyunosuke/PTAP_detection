@@ -43,60 +43,71 @@ all: $(RESULT) $(FALSE_POSITIVE)
 
 $(PROCESSED): $(INPUT)
 	mkdir -p $(@D)
-	python3 -m src.make_dataset $(length) \
+	python3 -m src.make_dataset \
+		$(length) \
 		$(foreach virus,$(viruses),$(findstring $(virus),$@)) \
-		$(fasta_dir) $(@D) --n_gram $(n_gram)
+		$(fasta_dir) \
+		$(@D) \
+		--n_gram $(n_gram)
 	touch $@
 
 $(VOCAB_FILE): $(PROCESSED)
-	python3 src/fit_vocab.py $(processed_dir) $(VOCAB_FILE) $(num_words)
+	python3 src/fit_vocab.py \
+		$(processed_dir) \
+		$(VOCAB_FILE) \
+		$(num_words)
 
-$(TRAIN_TFRECORD): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
-	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
-		--val_rate $(val_rate) --seed $(seed)
-
-$(TEST_TFRECORD): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
-	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
-		--val_rate $(val_rate) --seed $(seed)
-
-$(EVAL_TFRECORD_DIR):
-	mkdir -p $@
-
-$(EVAL_TFRECORD): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
-	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
-		--val_rate $(val_rate) --seed $(seed)
-
-$(CLASS_WEIGHT): $(PROCESSED) $(VOCAB_FILE) $(EVAL_TFRECORD_DIR)
-	python3 src/convert_dataset.py $(processed_dir) $(TRAIN_TFRECORD) \
-		$(TEST_TFRECORD) $(eval_tfrecord_dir) $(VOCAB_FILE) $(CLASS_WEIGHT) \
-		--val_rate $(val_rate) --seed $(seed)
+$(TRAIN_TFRECORD) $(TEST_TFRECORD) $(EVAL_TFRECORD) $(CLASS_WEIGHT): \
+		$(PROCESSED) $(VOCAB_FILE)
+	mkdir -p $(EVAL_TFRECORD_DIR)
+	python3 src/convert_dataset.py \
+		$(processed_dir) \
+		$(TRAIN_TFRECORD) \
+		$(TEST_TFRECORD) \
+		$(eval_tfrecord_dir) \
+		$(VOCAB_FILE) \
+		$(CLASS_WEIGHT) \
+		--val_rate $(val_rate) \
+		--seed $(seed)
 
 $(TRAINED_MODEL): $(TRAIN_TFRECORD) $(TEST_TFRECORD) $(CLASS_WEIGHT)
-	python3 src/train_model.py $(length) $(num_words) $(batch_size) \
-		$(epochs) $(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(threshold) $(TRAIN_TFRECORD) $(TEST_TFRECORD) \
-		$(model_dir) $(CLASS_WEIGHT)
+	python3 src/train_model.py \
+		$(length) \
+		$(num_words) \
+		$(batch_size) \
+		$(epochs) \
+		$(hopping_num) \
+		$(head_num) \
+		$(hidden_dim) \
+		$(dropout_rate) \
+		$(lr) \
+		$(threshold) \
+		$(TRAIN_TFRECORD) \
+		$(TEST_TFRECORD) \
+		$(model_dir) \
+		$(CLASS_WEIGHT)
 
 $(FALSE_POSITIVE_DIR): $(EVAL_TFRECORD_DIR)
 	mkdir -p $@
 
-$(RESULT): $(EVAL_TFRECORD) $(TRAINED_MODEL) $(FALSE_POSITIVE_DIR)
-	python3 src/predict_model.py $(length) $(batch_size) $(num_words) \
-		$(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(beta) $(threshold) $(model_dir) $(eval_tfrecord_dir) \
-		$(TEST_TFRECORD) $(VOCAB_FILE) $(RESULT) $(false_positive_dir)
+$(RESULT) $(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL)
+	python3 src/predict_model.py \
+		$(length) \
+		$(batch_size) \
+		$(num_words) \
+		$(hopping_num) \
+		$(head_num) \
+		$(hidden_dim) \
+		$(dropout_rate) \
+		$(lr) \
+		$(beta) \
+		$(threshold) \
+		$(model_dir) \
+		$(eval_tfrecord_dir) \
+		$(VOCAB_FILE) \
+		$(RESULT) \
+		$(false_positive_dir)
 	touch $(FALSE_POSITIVE)
-
-$(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL) $(FALSE_POSITIVE_DIR)
-	python3 src/predict_model.py $(length) $(batch_size) $(num_words) \
-		$(hopping_num) $(head_num) $(hidden_dim) $(dropout_rate) \
-		$(lr) $(beta) $(threshold) $(model_dir) $(eval_tfrecord_dir) \
-		$(TEST_TFRECORD) $(VOCAB_FILE) $(RESULT) $(false_positive_dir)
-	touch $(FALSE_POSITIVE)
-
 
 clear:
 	find data/processed/ | grep -v -x 'data/processed/' | \

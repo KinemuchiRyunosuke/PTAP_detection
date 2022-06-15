@@ -27,7 +27,6 @@ parser.add_argument('threshold', type=float)
 
 parser.add_argument('checkpoint_path', type=str)
 parser.add_argument('eval_tfrecord_dir', type=str)
-parser.add_argument('test_tfrecord_path', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('result_path', type=str)
 parser.add_argument('false_positive_dir', type=str)
@@ -42,13 +41,6 @@ def main():
 
     model = create_model()
     model.load_weights(args.checkpoint_path)
-
-    test_ds = load_dataset(args.test_tfrecord_path,
-                            batch_size=args.batch_size,
-                            length=args.length+1)
-
-    ys_pred = model.predict(test_ds)
-    ys_pred = np.squeeze(ys_pred)
 
     df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fn', 'fp', 'tp'])
     for data in json_data:

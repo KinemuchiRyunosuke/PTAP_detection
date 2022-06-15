@@ -1,6 +1,5 @@
 import os
 import argparse
-from xml.etree.ElementInclude import default_loader
 import numpy as np
 import pickle
 import json
