@@ -87,10 +87,8 @@ $(TRAINED_MODEL): $(TRAIN_TFRECORD) $(TEST_TFRECORD) $(CLASS_WEIGHT)
 		$(model_dir) \
 		$(CLASS_WEIGHT)
 
-$(FALSE_POSITIVE_DIR): $(EVAL_TFRECORD_DIR)
-	mkdir -p $@
-
 $(RESULT) $(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL)
+	mkdir -p $(FALSE_POSITIVE_DIR)
 	python3 src/predict_model.py \
 		$(length) \
 		$(batch_size) \

@@ -42,7 +42,7 @@ def main():
     model = create_model()
     model.load_weights(args.checkpoint_path)
 
-    df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fn', 'fp', 'tp'])
+    df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
     for data in json_data:
         virusname = data['virus'].replace(' ', '_')
 
