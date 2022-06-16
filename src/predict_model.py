@@ -5,8 +5,10 @@ import tensorflow as tf
 import pickle
 import json
 import pandas as pd
+import csv
 
 from models.transformer import BinaryClassificationTransformer
+from sklearn.metrics import confusion_matrix
 
 from features.preprocessing import Vocab, load_dataset
 
@@ -29,7 +31,7 @@ parser.add_argument('checkpoint_path', type=str)
 parser.add_argument('eval_tfrecord_dir', type=str)
 parser.add_argument('vocab_path', type=str)
 parser.add_argument('result_path', type=str)
-parser.add_argument('false_positive_dir', type=str)
+parser.add_argument('false_positive_path', type=str)
 
 args = parser.parse_args()
 
@@ -50,43 +52,37 @@ def main():
             eval_ds_path = os.path.join(os.path.join(
                     args.eval_tfrecord_dir, virusname),
                     f'{protein}.tfrecord')
-            fp_path = os.path.join(os.path.join(
-                args.false_positive_dir, virusname), f'{protein}.txt')
 
             # 最適な閾値で評価
             eval_ds = load_dataset(eval_ds_path,
                                    batch_size=args.batch_size,
                                    length=args.length+1)
+            
+            for x, y_true in eval_ds:
+                y_pred = model.predict(x)
+                y_pred = np.squeeze(y_pred)
+                cm = confusion_matrix(y_true, y_pred)
 
-            ys_pred = model.predict(eval_ds)
-            ys_pred = np.squeeze(ys_pred)
-            cm = calc_confusion_matrix(ys_pred, eval_ds, args.threshold)
+                # 評価結果をDataFrameに保存
+                row = pd.Series([virusname, protein,
+                        cm[0,0], cm[0,1], cm[1,0], cm[1,1]], index=df.columns)
+                df = df.append(row, ignore_index=True)
 
-            # 評価結果をDataFrameに保存
-            row = pd.Series([virusname, protein,
-                    cm[0,0], cm[0,1], cm[1,0], cm[1,1]], index=df.columns)
-            df = df.append(row, ignore_index=True)
+                with open(args.vocab_path, 'rb') as f:
+                    tokenizer = pickle.load(f)
+                vocab = Vocab(tokenizer)
 
-            with open(args.vocab_path, 'rb') as f:
-                tokenizer = pickle.load(f)
-            vocab = Vocab(tokenizer)
-
-            # 偽陽性データを保存
-            for i, (x, y_true) in enumerate(eval_ds):
-                y_true = y_true.numpy()
-                y_true = np.squeeze(y_true)
-                y_pred = ys_pred[i:(i + y_true.shape[0])]
-                y_pred = (y_pred >= args.threshold).astype(int)
-
+                # 偽陽性データを保存
                 x_fp = x[(y_true == 0) & (y_pred == 1)]
                 x_fp = vocab.decode(x_fp, class_token=True)
 
                 for seq in x_fp:
-                    with open(fp_path, 'a') as f:
-                        print(seq, file=f)
+                    with open(args.false_positive_path, 'a') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([virusname, protein, seq])
 
     df.to_csv(args.result_path)
-
+                
 
 def create_model():
     """ モデルを定義する """
@@ -101,35 +97,6 @@ def create_model():
                  loss='binary_crossentropy')
 
     return model
-
-def calc_confusion_matrix(ys_pred, ds, threshold):
-    cm = np.zeros((2, 2)).astype(int)
-    for i, (_, y_true) in enumerate(ds):
-        y_true = y_true.numpy()
-        y_true = np.squeeze(y_true)
-        y_pred = ys_pred[i:(i + y_true.shape[0])]
-        y_pred = (y_pred >= threshold).astype(int)
-
-        cm[0, 0] += ((y_true == 0) & (y_pred == 0)).astype(int).sum()
-        cm[0, 1] += ((y_true == 0) & (y_pred == 1)).astype(int).sum()
-        cm[1, 0] += ((y_true == 1) & (y_pred == 0)).astype(int).sum()
-        cm[1, 1] += ((y_true == 1) & (y_pred == 1)).astype(int).sum()
-
-    return cm
-
-def calc_precision(cm):
-    if cm[1, 1] != 0:
-        precision = cm[1, 1] / (cm[0, 1] + cm[1, 1])
-    else:
-        precision = 0
-    return precision
-
-def calc_recall(cm):
-    if cm[1, 1] != 0:
-        recall = cm[1, 1] / (cm[1, 0] + cm[1, 1])
-    else:
-        recall = 0
-    return recall
 
 
 if __name__ == '__main__':

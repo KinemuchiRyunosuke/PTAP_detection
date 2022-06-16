@@ -21,7 +21,6 @@ tfrecord_dir = data/tfrecord
 eval_tfrecord_dir = $(tfrecord_dir)/eval
 model_dir = models
 result_dir = reports/result
-false_positive_dir = reports/result/false_positive
 
 INPUT = $(foreach virus,$(viruses),data/interim/$(virus).fasta)
 PROCESSED = $(foreach virus,$(viruses),data/processed/$(virus)/.finish)
@@ -34,9 +33,7 @@ EVAL_TFRECORD = $(x:$(processed_dir)/%.pickle=$(eval_tfrecord_dir)/%.tfrecord)
 CLASS_WEIGHT = references/n_positive_negative.json
 TRAINED_MODEL = models/saved_model.pb
 RESULT = reports/result/evaluation.csv
-FALSE_POSITIVE_DIR = $(foreach virus,$(viruses),\
-	$(false_positive_dir)/$(virus))
-FALSE_POSITIVE = $(false_positive_dir)/.finish
+FALSE_POSITIVE = reports/result/false_positive.csv
 
 
 all: $(RESULT) $(FALSE_POSITIVE)
@@ -88,7 +85,6 @@ $(TRAINED_MODEL): $(TRAIN_TFRECORD) $(TEST_TFRECORD) $(CLASS_WEIGHT)
 		$(CLASS_WEIGHT)
 
 $(RESULT) $(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL)
-	mkdir -p $(FALSE_POSITIVE_DIR)
 	python3 src/predict_model.py \
 		$(length) \
 		$(batch_size) \
@@ -104,8 +100,7 @@ $(RESULT) $(FALSE_POSITIVE): $(EVAL_TFRECORD) $(TRAINED_MODEL)
 		$(eval_tfrecord_dir) \
 		$(VOCAB_FILE) \
 		$(RESULT) \
-		$(false_positive_dir)
-	touch $(FALSE_POSITIVE)
+		$(FALSE_POSITIVE)
 
 clear:
 	find data/processed/ | grep -v -x 'data/processed/' | \
