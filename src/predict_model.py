@@ -49,6 +49,7 @@ def main():
         virusname = data['virus'].replace(' ', '_')
 
         for protein in data['proteins']:
+            cm = np.zeros((2, 2))
             eval_ds_path = os.path.join(os.path.join(
                     args.eval_tfrecord_dir, virusname),
                     f'{protein}.tfrecord')
@@ -59,14 +60,12 @@ def main():
                                    length=args.length+1)
             
             for x, y_true in eval_ds:
+                y_true = np.squeeze(y_true)
                 y_pred = model.predict(x)
                 y_pred = np.squeeze(y_pred)
-                cm = confusion_matrix(y_true, y_pred)
-
-                # 評価結果をDataFrameに保存
-                row = pd.Series([virusname, protein,
-                        cm[0,0], cm[0,1], cm[1,0], cm[1,1]], index=df.columns)
-                df = df.append(row, ignore_index=True)
+                y_pred = (y_pred >= args.threshold).astype(int)
+                cm_batch = confusion_matrix(y_true, y_pred, labels=[0, 1])
+                cm += cm_batch
 
                 with open(args.vocab_path, 'rb') as f:
                     tokenizer = pickle.load(f)
@@ -80,6 +79,11 @@ def main():
                     with open(args.false_positive_path, 'a') as f:
                         writer = csv.writer(f)
                         writer.writerow([virusname, protein, seq])
+
+            # 評価結をDataFrameに保存
+            row = pd.Series([virusname, protein,
+                    cm[0,0], cm[0,1], cm[1,0], cm[1,1]], index=df.columns)
+            df = df.append(row, ignore_index=True)
 
     df.to_csv(args.result_path)
                 
