@@ -7,7 +7,7 @@ from Bio import SeqIO
 from utils import determine_protein_name
 
 
-def make_dataset(motif_data, length, virus, fasta_dir, n_gram):
+def make_dataset(motif_data, length, virus, fasta_dir, separate_len, n_gram):
     # 対象となるウイルスのJSONデータを取得
     data = None
     for content in motif_data:
@@ -27,6 +27,7 @@ def make_dataset(motif_data, length, virus, fasta_dir, n_gram):
             neighbor=data['neighbor'],
             replacement_tolerance=data['replacement_tolerance'],
             threshold=len(data['SLiM']),
+            separate_len=separate_len,
             n_gram=n_gram)
 
     dataset = dataset_maker.make_dataset(records, dict=True)
@@ -37,7 +38,8 @@ class Dataset:
 
     def __init__(self, SLiM, idx, length=10, proteins=None, neighbor=None,
                  SLiM_proteins=None, remove_X=True, replacement_tolerance=1,
-                 threshold=None, random_split=False, n_gram=False):
+                 threshold=None, random_split=False, separate_len=None,
+                 n_gram=False):
         self.SLiM = SLiM            # str: アノテーションするSLiM配列
         self.idx = idx              # int: SLiMの開始位置
         self.length = length        # int: 断片の長さ
@@ -67,6 +69,10 @@ class Dataset:
 
         # bool: Trueのとき，ランダムな位置から分割を開始する
         self.random_split = random_split
+
+        # int: n連続アミノ酸でベクトルを生成するときは長さを指定する．
+        #   Noneを指定するとn連続アミノ酸頻度に分割しない．
+        self.separate_len = separate_len
 
         # bool: Trueのとき，n-gramのデータセットを作成する
         self.n_gram = n_gram
@@ -137,7 +143,8 @@ class Dataset:
             protein_name = determine_protein_name(record.description,
                                                   self.proteins)
             if protein_name is None:
-                print(record.description)
+                print("Protein name was not detected.")
+                print("description: {}".format(record.description))
                 continue
 
             if self.SLiM_proteins is not None:
@@ -166,6 +173,9 @@ class Dataset:
                 x, y = self._n_gram_split(seq_dict[key], label_dict[key])
             else:
                 x, y = self._split(seq_dict[key], label_dict[key])
+
+            if self.separate_len is not None:
+                x = separate(x, n=self.separate_len)
 
             x = np.array(x).reshape(-1, 1)
             y = np.array(y)
@@ -296,6 +306,30 @@ class Dataset:
 
         return label
 
+def separate(seqs, n=2):
+    """ n残基ずつに分ける
+
+    Args:
+        seqs(ndarray, list): 操作を行う配列
+        n(int): n残基ずつに分ける
+
+    Returns:
+        list of str
+
+    """
+    if type(seqs).__module__ == 'numpy':
+        seqs = np.squeeze(seqs)
+        seqs = seqs.tolist()
+
+    separated_seqs = []
+    for seq in seqs:
+        fragments = []
+        for i in range(len(seq) - n + 1):
+            fragments.append(seq[i:i+n])
+
+        separated_seqs.append(' '.join(fragments))
+
+    return separated_seqs
 
 def extract(fastafile, keywords=None, proteins=None):
     """ FASTAファイルからヘッダー行にkeywordを含む配列を抽出する
