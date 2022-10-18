@@ -2,7 +2,6 @@ from concurrent.futures import process
 import os
 import json
 import pickle
-from venv import create
 import tensorflow as tf
 
 from dataset import make_dataset
@@ -37,6 +36,7 @@ hidden_dim = 8
 # ===============================================================
 
 # paths
+motif_data_path = 'references/PTAP_data.json'
 fasta_dir = "data/interim/"
 processed_dir = "data/processed/"
 tfrecord_dir = "data/tfrecord/"
@@ -52,7 +52,6 @@ false_positive_path = "reports/result/false_positive.csv"
 positive_pred_path = "reports/result/positive_pred.csv"
 
 def main():
-    motif_data_path = 'references/PTAP_data.json'
     with open(motif_data_path, 'r') as f:
         motif_data = json.load(f)
 
@@ -64,7 +63,7 @@ def main():
             out_dir = os.path.join(processed_dir, virus)
             dataset = make_dataset(motif_data, length, virus,
                     fasta_dir, n_gram)
-            
+
             # TEST======================================================
             for key, (x, y) in dataset.items():
                 dataset[key] = (x[:1000], y[:1000])
