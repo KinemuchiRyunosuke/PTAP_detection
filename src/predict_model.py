@@ -1,4 +1,3 @@
-from concurrent.futures import process
 import os
 import json
 import pickle
@@ -16,7 +15,9 @@ from models.transformer import BinaryClassificationTransformer
 length = 26
 n_gram = True
 val_rate = 0.2
-num_words = 25
+num_amino_acid = 22
+separate_len = 2
+num_words = num_amino_acid ** separate_len
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -56,13 +57,18 @@ def main():
         motif_data = json.load(f)
 
     if not finish_making_dataset(motif_data):
-        print("================== MAKING DATASET ===================")
+        print("================== MAKING DATASET ==================")
         # データセットを生成
         for content in motif_data:
             virus = content['virus'].replace(' ', '_')
             out_dir = os.path.join(processed_dir, virus)
-            dataset = make_dataset(motif_data, length, virus,
-                    fasta_dir, n_gram)
+            dataset = make_dataset(
+                    motif_data=motif_data,
+                    length=length,
+                    virus=virus,
+                    fasta_dir=fasta_dir,
+                    separate_len=separate_len,
+                    n_gram=n_gram)
 
             # TEST======================================================
             for key, (x, y) in dataset.items():
@@ -81,7 +87,10 @@ def main():
 
     if not os.path.exists(vocab_path):
         print("================== FITTING =========================")
-        fit_vocab(motif_data, num_words, processed_dir, vocab_path)
+        fit_vocab(motif_data=motif_data,
+                  num_words=num_words,
+                  dataset_dir=processed_dir,
+                  vocab_path=vocab_path)
 
     if not (os.path.exists(train_tfrecord_path) \
             and os.path.exists(test_tfrecord_path)):
@@ -89,9 +98,14 @@ def main():
 
         # データセットの前処理
         x_train, x_test, y_train, y_test = \
-            preprocess_dataset(motif_data, processed_dir,
-                    eval_tfrecord_dir, vocab_path, n_pos_neg_path,
-                    val_rate, seed)
+            preprocess_dataset(
+                motif_data=motif_data,
+                processed_dir=processed_dir,
+                eval_tfrecord_dir=eval_tfrecord_dir,
+                vocab_path=vocab_path,
+                n_pos_neg_path=n_pos_neg_path,
+                val_rate=val_rate,
+                seed=seed)
 
         # tf.data.Datasetとして保存
         write_tfrecord(x_test, y_test, test_tfrecord_path)
@@ -100,14 +114,27 @@ def main():
     model = create_model()
     if not os.path.exists(checkpoint_path):
         print("================== TRAINING ========================")
-        train(model, length, batch_size, epochs, n_pos_neg_path,
-              train_tfrecord_path, test_tfrecord_path, model_dir)
+        train(model=model,
+              seq_length=length - separate_len + 2,
+              batch_size=batch_size,
+              epochs=epochs,
+              n_pos_neg_path=n_pos_neg_path,
+              train_tfrecord_path=train_tfrecord_path,
+              test_tfrecord_path=test_tfrecord_path,
+              checkpoint_path=model_dir)
 
     print("================== EVALUATION ======================")
     model.load_weights(os.path.dirname(checkpoint_path))
-    evaluate(motif_data, model, length, batch_size, threshold,
-             eval_tfrecord_dir, vocab_path, result_path,
-             false_positive_path, positive_pred_path)
+    evaluate(motif_data=motif_data,
+             model=model,
+             seq_length=length - separate_len + 2,
+             batch_size=batch_size,
+             threshold=threshold,
+             eval_tfrecord_dir=eval_tfrecord_dir,
+             vocab_path=vocab_path,
+             result_path=result_path,
+             false_positive_path=false_positive_path,
+             positive_pred_path=positive_pred_path)
 
 
 def finish_making_dataset(motif_data):
