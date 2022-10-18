@@ -3,7 +3,7 @@ import tensorflow as tf
 
 from preprocessing import load_dataset
 
-def train(model, length, batch_size, epochs, n_pos_neg_path,
+def train(model, seq_length, batch_size, epochs, n_pos_neg_path,
           train_tfrecord_path, test_tfrecord_path,
           checkpoint_path):
     # クラス重みを設定
@@ -17,10 +17,10 @@ def train(model, length, batch_size, epochs, n_pos_neg_path,
 
     train_ds = load_dataset(train_tfrecord_path,
                             batch_size=batch_size,
-                            length=length+1)
+                            length=seq_length)
     test_ds = load_dataset(test_tfrecord_path,
                             batch_size=batch_size,
-                            length=length+1)
+                            length=seq_length)
 
     # 学習
     callbacks = [

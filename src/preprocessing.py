@@ -32,10 +32,7 @@ def preprocess_dataset(motif_data, processed_dir,
             x = vocab.encode(x)
             x = add_class_token(x)
 
-            np.random.seed(seed)
-            np.random.shuffle(x)
-            np.random.seed(seed)
-            np.random.shuffle(y)
+            shuffle(x, y, seed)
 
             # データセットを学習用と検証用に分割
             boundary = math.floor(len(x) * val_rate)
@@ -72,16 +69,17 @@ def preprocess_dataset(motif_data, processed_dir,
                             sampling_strategy=1.0)
 
     # シャッフル
-    np.random.seed(seed)
-    np.random.shuffle(x_test)
-    np.random.seed(seed)
-    np.random.shuffle(y_test)
-    np.random.seed(seed)
-    np.random.shuffle(x_train)
-    np.random.seed(seed)
-    np.random.shuffle(y_train)
+    shuffle(x_test, y_test, seed)
+    shuffle(x_train, y_train, seed)
 
     return x_train, x_test, y_train, y_test
+
+
+def shuffle(x, y, seed):
+    np.random.seed(seed)
+    np.random.shuffle(x)
+    np.random.seed(seed)
+    np.random.shuffle(y)
 
 
 def make_example(sequence, label):
@@ -100,6 +98,7 @@ def write_tfrecord(sequences, labels, filename):
 
         writer.write(ex.SerializeToString())
     writer.close()
+
 
 class Vocab:
     def __init__(self, tokenizer):
@@ -178,10 +177,6 @@ class Vocab:
         texts = [text.replace(' ', '') for text in texts]
 
         return texts
-
-    def _texts(self, sequences):
-        return ['\t'.join(words) for words in sequences]
-
 
 def pad_dataset(sequences, class_token=False):
     """ paddingを行う

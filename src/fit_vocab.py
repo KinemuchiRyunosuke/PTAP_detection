@@ -11,8 +11,8 @@ def fit_vocab(motif_data, num_words, dataset_dir, vocab_path):
                 oov_token='<UNK>',
                 filters='',
                 lower=False,
-                split='\t',
-                char_level=True
+                split=' ',
+                char_level=False
     )
 
     vocab = Vocab(tokenizer)
