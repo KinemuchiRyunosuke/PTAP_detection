@@ -3,9 +3,9 @@ import tensorflow as tf
 
 from preprocessing import load_dataset
 
+
 def train(model, seq_length, batch_size, epochs, n_pos_neg_path,
-          train_tfrecord_path, test_tfrecord_path,
-          checkpoint_path):
+          train_tfrecord_path, test_tfrecord_path):
     # クラス重みを設定
     with open(n_pos_neg_path, 'r') as f:
         n_pos_neg = json.load(f)
@@ -26,9 +26,6 @@ def train(model, seq_length, batch_size, epochs, n_pos_neg_path,
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
                 monitor='val_precision', mode='max', patience=5),
-        tf.keras.callbacks.ModelCheckpoint(
-                checkpoint_path, monitor='val_precision',
-                mode='max', save_best_only=True),
         tf.keras.callbacks.ReduceLROnPlateau(
                 monitor='val_precision', mode='max',
                 factor=0.2, patience=3)
