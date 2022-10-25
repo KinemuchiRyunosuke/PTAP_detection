@@ -132,14 +132,15 @@ def objective(trial):
     with open(motif_data_path, 'r') as f:
         motif_data = json.load(f)
 
-    precision = evaluate_precision(
+    f_beta_score = evaluate_precision(
             motif_data=motif_data,
             model=model,
             seq_length=seq_length,
             batch_size=batch_size,
             threshold=threshold,
-            eval_tfrecord_dir=eval_tfrecord_dir.format(separate_len))
-    return -precision
+            eval_tfrecord_dir=eval_tfrecord_dir.format(separate_len),
+            beta=beta)
+    return -f_beta_score
 
 def create_model(num_words, hopping_num, hidden_dim, lr):
     """ モデルを定義する """

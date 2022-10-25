@@ -7,7 +7,7 @@ from preprocessing import load_dataset
 
 
 def evaluate_precision(motif_data, model, seq_length, batch_size, threshold,
-             eval_tfrecord_dir):
+             eval_tfrecord_dir, beta):
     df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
     for data in motif_data:
         virusname = data['virus'].replace(' ', '_')
@@ -36,7 +36,16 @@ def evaluate_precision(motif_data, model, seq_length, batch_size, threshold,
 
     # precisionの計算
     total_fp = df['fp'].sum()
+    total_fn = df['fn'].sum()
     total_tp = df['tp'].sum()
-    precision = total_tp / (total_tp + total_fp)
-    return precision
 
+    return f_beta_score(total_tp, total_fp, total_fn, beta)
+
+def f_beta_score(tp, fp, fn, beta):
+    try:
+        f_beta_score = (1 + beta**2) * tp / \
+                ((1 + beta**2) * tp + beta**2 * fn + fp)
+    except ZeroDivisionError:
+        f_beta_score = 0
+
+    return f_beta_score
