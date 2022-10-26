@@ -174,7 +174,11 @@ class Vocab:
                 sequences[i] = list(map(lambda x: x-1, seq))
 
         texts = self.tokenizer.sequences_to_texts(sequences)
-        texts = [text.replace(' ', '') for text in texts]
+
+        for i, text in enumerate(texts):
+            text = text.split()
+            text = [text[0]] + list(map(lambda word: word[0], text[1:]))
+            texts[i] = ''.join(text)
 
         return texts
 
