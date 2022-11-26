@@ -11,12 +11,8 @@ from imblearn.under_sampling import RandomUnderSampler
 
 def preprocess_dataset(motif_data, processed_dir,
                        eval_tfrecord_dir,
-                       vocab_path, n_pos_neg_path,
+                       vocab, n_pos_neg_path,
                        val_rate=0.2, seed=1):
-    with open(vocab_path, 'rb') as f:
-        tokenizer = pickle.load(f)
-    vocab = Vocab(tokenizer)
-
     x_train, y_train, x_test, y_test = [], [], [], []
     for data in motif_data:
         virusname = data['virus'].replace(' ', '_')

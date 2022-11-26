@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from dataset import make_dataset
 from fit_vocab import fit_vocab
-from preprocessing import preprocess_dataset, write_tfrecord
+from preprocessing import preprocess_dataset, write_tfrecord, Vocab
 from train_model import train
 from evaluate import evaluate
 from models.transformer import BinaryClassificationTransformer
@@ -17,7 +17,7 @@ n_gram = True
 val_rate = 0.2
 num_amino_acid = 22
 separate_len = 1
-num_words = num_amino_acid ** separate_len + 2
+num_words = num_amino_acid ** separate_len + 3
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -30,14 +30,14 @@ beta = 0.5              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
 
 # TEST===========================================================
-batch_size = 100000
-epochs = 1
-hopping_num = 1
-hidden_dim = 8
+# batch_size = 100000
+# epochs = 1
+# hopping_num = 1
+# hidden_dim = 8
 # ===============================================================
 
 # paths
-motif_data_path = 'references/PTAP_data.json'
+motif_data_path = 'references/motif_data.json'
 fasta_dir = "data/interim/"
 processed_dir = "data/processed/"
 tfrecord_dir = "data/tfrecord/"
@@ -67,12 +67,11 @@ def main():
                     length=length,
                     virus=virus,
                     fasta_dir=fasta_dir,
-                    separate_len=separate_len,
-                    n_gram=n_gram)
+                    separate_len=separate_len)
 
             # TEST======================================================
-            for key, (x, y) in dataset.items():
-                dataset[key] = (x[:10000], y[:10000])
+            # for key, (x, y) in dataset.items():
+            #     dataset[key] = (x[:10000], y[:10000])
             #===========================================================
 
             if not os.path.exists(out_dir):
@@ -87,10 +86,18 @@ def main():
 
     if not os.path.exists(vocab_path):
         print("================== FITTING =========================")
-        fit_vocab(motif_data=motif_data,
-                  num_words=num_words,
-                  dataset_dir=processed_dir,
-                  vocab_path=vocab_path)
+        vocab = fit_vocab(motif_data=motif_data,
+                          num_words=num_words,
+                          dataset_dir=processed_dir,
+                          vocab_path=vocab_path)
+
+        with open(vocab_path, 'wb') as f:
+            pickle.dump(vocab.tokenizer, f)
+    else:
+        with open(vocab_path, 'rb') as f:
+            tokenizer = pickle.load(f)
+        vocab = Vocab(tokenizer)
+
 
     if not (os.path.exists(train_tfrecord_path) \
             and os.path.exists(test_tfrecord_path)):
@@ -102,7 +109,7 @@ def main():
                 motif_data=motif_data,
                 processed_dir=processed_dir,
                 eval_tfrecord_dir=eval_tfrecord_dir,
-                vocab_path=vocab_path,
+                vocab=vocab,
                 n_pos_neg_path=n_pos_neg_path,
                 val_rate=val_rate,
                 seed=seed)

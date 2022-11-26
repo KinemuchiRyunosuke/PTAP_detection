@@ -1,0 +1,72 @@
+[
+    {
+        "virus": "HIV-1",
+        "SLiM_protein": "env",
+        "proteins": {
+                "gag-pol": ["gag-pol", "gag-Pol", "Gag-Pol"],
+                "gag": ["gag", "Gag", "GAG"],
+                "env": ["env", "Env", "ENV", "gp120", "gp41", "gp160",
+                        "envelope glycoprotein"],
+                "pol": ["pol protein", "pol polyprotein", "polymerase",
+                        "Pol", "POL protein"],
+                "vif": ["vif", "Vif", "VIF", "viral infectivity factor"],
+                "vpr": ["vpr", "Vpr", "VPR", "vpR"],
+                "tat": ["tat", "Tat", "TAT"],
+                "rev": ["rev", "Rev", "REV"],
+                "vpu": ["vpu", "Vpu", "VPU"],
+                "nef": ["nef", "Nef", "NEF"]
+        },
+        "SLiM": "RQGYSPLS",
+        "start_index": 712,
+        "end_index": 715,
+        "neighbor": null,
+        "replacement_tolerance": 2
+    },
+    {
+        "virus": "Human T-lymphotropic virus 2",
+        "SLiM_protein": "env",
+        "proteins": {
+                "gag-pro-pol": ["gag-pro-pol", "Gag-Pro-Pol"],
+                "gag-pro": ["gag-pro", "Gag-Pro", "Gag-pro", "gag-Pro"],
+                "pro": ["pro protein", "Pro protein"],
+                "gag": ["gag", "Gag", "GAG"],
+                "env": ["env", "Env", "ENV", "gp20", "gp21", "gp35", "gp63",
+                        "gp46", "envelope glycoprotein"],
+                "tax": ["tax", "Tax"],
+                "rex": ["rex", "Rex"],
+                "pol": ["pol protein", "pol polyprotein", "polymerase",
+                        "Pol protein", "POL"]
+        },
+        "SLiM": "QYSLIN",
+        "start_index": 477,
+        "end_index": 480,
+        "neighbor": null,
+        "replacement_tolerance": 2
+    },
+    {
+        "virus": "Bovine leukemia virus",
+        "SLiM_protein": "env",
+        "proteins": {
+                "gag-pro-pol": ["gag-pro-pol"],
+                "gag-pro": ["gag-pro"],
+                "gag": ["gag", "Gag", "GAG", "glycoprotein"],
+                "env": ["env", "Env", "ENV", "gp5", "gp30", "gp51", "gp60",
+                        "envelope glycoprotein"],
+                "tax": ["tax", "Tax"],
+                "rex": ["rex", "Rex"],
+                "G4": ["G4"],
+                "AS1": ["AS1"],
+                "R3": ["R3"],
+                "R5": ["R5"],
+                "pX": ["p4", "p5", "p10", "p11", "p11", "p12", "p14",
+                       "p18", "p24", "p34"],
+                "pol": ["pol protein", "pol polyprotein", "polymerase",
+                        "Pol protein", "POL"]
+        },
+        "SLiM": "DYQALL",
+        "start_index": 487,
+        "end_index": 490,
+        "neighbor": null,
+        "replacement_tolerance": 2
+    }
+]

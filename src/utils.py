@@ -1,5 +1,4 @@
 import numpy as np
-import re
 import random
 import math
 
@@ -20,36 +19,12 @@ def determine_protein_name(desc, proteins):
         見つからない場合，Noneを返す．
 
     """
-    def _find_keyword(keyword, desc, proteins):
-        """ desc の中から keywordを見つける """
-        match = re.search(keyword, desc)
-        name = desc[match.end():]
+    for protein, keywords in proteins.items():
+        for keyword in keywords:
+            if keyword in desc:
+                return protein
 
-        for i, char in enumerate(name):
-            if (char == '|') or (char == '\n'):
-                name = name[:i]
-                break
-
-        result = None
-        for key, values in proteins.items():
-            for value in values:
-                if value in name:
-                    result = key
-                    break
-
-        return result
-
-    result = None
-
-    if 'Gene Symbol' in desc:
-        # Gene Symbol を取得
-        result = _find_keyword(r'Gene Symbol:', desc, proteins)
-
-    if result is None:
-        # Protein Name を取得
-        result = _find_keyword(r'Protein Name:', desc, proteins)
-
-    return result
+    return None
 
 def drop_SLiM(seqs, slim, replacement_tolerance):
     """ アミノ酸配列中からSLiM部分を抜く

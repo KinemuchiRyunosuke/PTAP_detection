@@ -28,6 +28,4 @@ def fit_vocab(motif_data, num_words, dataset_dir, vocab_path):
 
             vocab.fit(x)
 
-    tokenizer = vocab.tokenizer
-    with open(vocab_path, 'wb') as f:
-        pickle.dump(tokenizer, f)
+    return vocab
