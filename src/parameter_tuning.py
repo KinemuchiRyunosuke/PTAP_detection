@@ -28,13 +28,14 @@ dropout_rate = 0.04
 beta = 0.5              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
 n_trials = 100
+num_tokens = 2          # トークン(<PAD>, <CLS>)の数
 
 # TEST===========================================================
 # batch_size = 100000
 # epochs = 1
 # hopping_num = 1
 # hidden_dim = 8
-# n_trials = 3
+# n_trials = 10
 # ===============================================================
 
 # paths
@@ -73,7 +74,7 @@ def objective(trial):
     hidden_dim = 8 * trial.suggest_int('hidden_dim/8', 4, 124, log=True)
     separate_len = trial.suggest_int('separate_len', 1,
             min(4, math.ceil(4 * 250 / hidden_dim)))    # メモリ不足予防のために上限設定
-    num_words = num_amino_acid ** separate_len + 3
+    num_words = (num_amino_acid + 1) ** separate_len
     seq_length = length - separate_len + 2
 
     # データセット作成
@@ -148,7 +149,7 @@ def objective(trial):
 def create_model(num_words, hopping_num, hidden_dim, lr):
     """ モデルを定義する """
     model = BinaryClassificationTransformer(
-                vocab_size=num_words,
+                vocab_size=num_words + num_tokens,
                 hopping_num=hopping_num,
                 head_num=head_num,
                 hidden_dim=hidden_dim,

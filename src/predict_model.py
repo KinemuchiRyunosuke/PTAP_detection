@@ -15,9 +15,10 @@ from models.transformer import BinaryClassificationTransformer
 length = 26
 n_gram = True
 val_rate = 0.2
-num_amino_acid = 22
+num_amino_acid = 20
 separate_len = 1
-num_words = num_amino_acid ** separate_len + 3
+num_words = (num_amino_acid + 1) ** separate_len
+num_tokens = 2          # トークン(<PAD>, <CLS>)の数
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -98,7 +99,6 @@ def main():
             tokenizer = pickle.load(f)
         vocab = Vocab(tokenizer)
 
-
     if not (os.path.exists(train_tfrecord_path) \
             and os.path.exists(test_tfrecord_path)):
         print("================== PREPROCESSING ===================")
@@ -162,7 +162,7 @@ def finish_making_dataset(motif_data):
 def create_model():
     """ モデルを定義する """
     model = BinaryClassificationTransformer(
-                vocab_size=num_words,
+                vocab_size=num_words + num_tokens,
                 hopping_num=hopping_num,
                 head_num=head_num,
                 hidden_dim=hidden_dim,
