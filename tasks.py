@@ -3,7 +3,7 @@ import json
 import shutil
 import invoke
 
-motif_data_path = 'references/PTAP_data.json'
+motif_data_path = 'references/motif_data.json'
 processed_dir = "data/processed/"
 eval_tfrecord_dir = "data/tfrecord/eval/"
 train_tfrecord_path = "data/tfrecord/train_dataset.tfrecord"

@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from dataset import make_dataset
 from fit_vocab import fit_vocab
-from preprocessing import preprocess_dataset, write_tfrecord
+from preprocessing import preprocess_dataset, write_tfrecord, Vocab
 from train_model import train
 from evaluate import evaluate
 from models.transformer import BinaryClassificationTransformer
@@ -15,9 +15,10 @@ from models.transformer import BinaryClassificationTransformer
 length = 26
 n_gram = True
 val_rate = 0.2
-num_amino_acid = 22
+num_amino_acid = 20
 separate_len = 1
-num_words = num_amino_acid ** separate_len + 2
+num_words = num_amino_acid ** separate_len
+num_tokens = 2
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -37,7 +38,7 @@ hidden_dim = 8
 # ===============================================================
 
 # paths
-motif_data_path = 'references/PTAP_data.json'
+motif_data_path = 'references/motif_data.json'
 fasta_dir = "data/interim/"
 processed_dir = "data/processed/"
 tfrecord_dir = "data/tfrecord/"
@@ -53,6 +54,27 @@ false_positive_path = "reports/result/false_positive.csv"
 positive_pred_path = "reports/result/positive_pred.csv"
 
 def main():
+    try:
+        tpu = tf.distribute.cluster_resolver.TPUClusterResolver() # TPU detection
+    except ValueError:
+        tpu = None
+        gpus = tf.config.experimental.list_logical_devices("GPU")
+
+    if tpu:
+        tf.tpu.experimental.initialize_tpu_system(tpu)
+        strategy = tf.distribute.experimental.TPUStrategy(tpu, steps_per_run=128) # Going back and forth between TPU and host is expensive. Better to run 128 batches on the TPU before reporting back.
+        print('Running on TPU ', tpu.cluster_spec().as_dict()['worker'])
+    elif len(gpus) > 1:
+        strategy = tf.distribute.MirroredStrategy([gpu.name for gpu in gpus])
+        print('Running on multiple GPUs ', [gpu.name for gpu in gpus])
+    elif len(gpus) == 1:
+        strategy = tf.distribute.get_strategy() # default strategy that works on CPU and single GPU
+        print('Running on single GPU ', gpus[0].name)
+    else:
+        strategy = tf.distribute.get_strategy() # default strategy that works on CPU and single GPU
+        print('Running on CPU')
+    print("Number of accelerators: ", strategy.num_replicas_in_sync)
+
     with open(motif_data_path, 'r') as f:
         motif_data = json.load(f)
 
@@ -67,8 +89,7 @@ def main():
                     length=length,
                     virus=virus,
                     fasta_dir=fasta_dir,
-                    separate_len=separate_len,
-                    n_gram=n_gram)
+                    separate_len=separate_len)
 
             # TEST======================================================
             for key, (x, y) in dataset.items():
@@ -87,10 +108,19 @@ def main():
 
     if not os.path.exists(vocab_path):
         print("================== FITTING =========================")
-        fit_vocab(motif_data=motif_data,
-                  num_words=num_words,
-                  dataset_dir=processed_dir,
-                  vocab_path=vocab_path)
+        vocab = fit_vocab(motif_data=motif_data,
+                          num_words=num_words,
+                          dataset_dir=processed_dir,
+                          vocab_path=vocab_path)
+
+        with open(vocab_path, 'wb') as f:
+            pickle.dump(vocab.tokenizer, f)
+
+    else:
+        with open(vocab_path, 'rb') as f:
+            tokenizer = pickle.load(f)
+        vocab = Vocab(tokenizer)
+
 
     if not (os.path.exists(train_tfrecord_path) \
             and os.path.exists(test_tfrecord_path)):
@@ -102,7 +132,7 @@ def main():
                 motif_data=motif_data,
                 processed_dir=processed_dir,
                 eval_tfrecord_dir=eval_tfrecord_dir,
-                vocab_path=vocab_path,
+                vocab=vocab,
                 n_pos_neg_path=n_pos_neg_path,
                 val_rate=val_rate,
                 seed=seed)
@@ -111,7 +141,9 @@ def main():
         write_tfrecord(x_test, y_test, test_tfrecord_path)
         write_tfrecord(x_train, y_train, train_tfrecord_path)
 
-    model = create_model()
+    with strategy.scope():
+        model = create_model()
+
     if not os.path.exists(checkpoint_path):
         print("================== TRAINING ========================")
         train(model=model,
@@ -155,7 +187,7 @@ def finish_making_dataset(motif_data):
 def create_model():
     """ モデルを定義する """
     model = BinaryClassificationTransformer(
-                vocab_size=num_words,
+                vocab_size=num_words + num_tokens,
                 hopping_num=hopping_num,
                 head_num=head_num,
                 hidden_dim=hidden_dim,

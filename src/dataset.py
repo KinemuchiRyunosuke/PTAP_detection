@@ -1,13 +1,12 @@
 import os
 import numpy as np
-import random
 from argparse import ArgumentError
 from Bio import SeqIO
 
 from utils import determine_protein_name
 
 
-def make_dataset(motif_data, length, virus, fasta_dir, separate_len, n_gram):
+def make_dataset(motif_data, length, virus, fasta_dir, separate_len):
     # 対象となるウイルスのJSONデータを取得
     data = None
     for content in motif_data:
@@ -23,12 +22,11 @@ def make_dataset(motif_data, length, virus, fasta_dir, separate_len, n_gram):
             idx=data['start_index'],
             length=length,
             proteins=data['proteins'],
-            SLiM_proteins=data['SLiM_proteins'],
+            SLiM_protein=data['SLiM_protein'],
             neighbor=data['neighbor'],
             replacement_tolerance=data['replacement_tolerance'],
             threshold=len(data['SLiM']),
-            separate_len=separate_len,
-            n_gram=n_gram)
+            separate_len=separate_len)
 
     dataset = dataset_maker.make_dataset(records, dict=True)
     return dataset
@@ -37,9 +35,8 @@ def make_dataset(motif_data, length, virus, fasta_dir, separate_len, n_gram):
 class Dataset:
 
     def __init__(self, SLiM, idx, length=10, proteins=None, neighbor=None,
-                 SLiM_proteins=None, remove_X=True, replacement_tolerance=1,
-                 threshold=None, random_split=False, separate_len=None,
-                 n_gram=False):
+                 SLiM_protein=None, remove_X=True, replacement_tolerance=1,
+                 threshold=None, separate_len=None):
         self.SLiM = SLiM            # str: アノテーションするSLiM配列
         self.idx = idx              # int: SLiMの開始位置
         self.length = length        # int: 断片の長さ
@@ -49,7 +46,7 @@ class Dataset:
                                     #   LiMを探索する．
                                     #   Noneの場合は範囲を無視して探索する．
 
-        self.SLiM_proteins = SLiM_proteins   # [str]: SLiMを持つレコードの
+        self.SLiM_protein = SLiM_protein   # [str]: SLiMを持つレコードの
                                              #        descriptionに
                                              #        含まれる文字列
 
@@ -67,15 +64,9 @@ class Dataset:
         else:
             self.threshold = len(self.SLiM)
 
-        # bool: Trueのとき，ランダムな位置から分割を開始する
-        self.random_split = random_split
-
         # int: n連続アミノ酸でベクトルを生成するときは長さを指定する．
         #   Noneを指定するとn連続アミノ酸頻度に分割しない．
         self.separate_len = separate_len
-
-        # bool: Trueのとき，n-gramのデータセットを作成する
-        self.n_gram = n_gram
 
     def make_dataset(self, records, dict=False):
         """ レコードのリストからアミノ酸配列・アノテーションリストを取得
@@ -96,34 +87,21 @@ class Dataset:
                     labels: ndarray, shape=(n_samples)
 
         """
-        while (True):
-            datasets = self._make_dataset_dict(records)
-
-            for key in datasets.keys():
-                has_SLiM = key in self.SLiM_proteins
-
-                if has_SLiM:
-                    finish = True
-                    x, y = datasets[key]
-                    if ((y == 1).sum() == 0):
-                        finish = False
-
-            if finish:
-                break
+        datasets = self._make_dataset_dict(records)
 
         if dict:
             return datasets
-
         else:
             xs, ys = [], []
-            for key in datasets.keys():
-                x, y = datasets[key]
+            for protein in datasets.keys():
+                x, y = datasets[protein]
                 xs.append(x)
                 ys.append(y)
 
             xs = np.vstack(xs)
             ys = np.hstack(ys)
-            return xs, ys
+
+        return xs, ys
 
     def _make_dataset_dict(self, records):
         seq_dict = {}
@@ -133,46 +111,34 @@ class Dataset:
             label_dict[key] = []
 
         for record in records:
-            seq = record.seq
-
             if self.remove_X:
                 if 'X' in record.seq:
                     continue
+
+            if len(record.seq) < self.length:
+                continue
 
             # タンパク質の種別を判別する
             protein_name = determine_protein_name(record.description,
                                                   self.proteins)
             if protein_name is None:
-                print("Protein name was not detected.")
-                print("description: {}".format(record.description))
                 continue
 
-            if self.SLiM_proteins is not None:
-
-                has_SLiM = protein_name in self.SLiM_proteins
-
-                # keywordを持っていない => SLiMを持っていない
+            if self.SLiM_protein is not None:
+                has_SLiM = (protein_name == self.SLiM_protein)
                 if not has_SLiM:
                     label_list = [0] * len(record.seq)
                 else:
-                    label_list = self._annotate(seq)
-
+                    label_list = self._annotate(record.seq)
             else:
-                label_list = self._annotate(seq)
+                label_list = self._annotate(record.seq)
 
-            seq_dict[protein_name].append(seq)
+            seq_dict[protein_name].append(str(record.seq))
             label_dict[protein_name].append(label_list)
 
-        # Bio.Seqオブジェクトからstrオブジェクトに変換
-        for key, value in seq_dict.items():
-            seq_dict[key] = [str(seq) for seq in value]
-
         result_dict = {}
-        for key in self.proteins.keys():
-            if self.n_gram:
-                x, y = self._n_gram_split(seq_dict[key], label_dict[key])
-            else:
-                x, y = self._split(seq_dict[key], label_dict[key])
+        for protein in self.proteins.keys():
+            x, y = self._n_gram_split(seq_dict[protein], label_dict[protein])
 
             if self.separate_len is not None:
                 x = separate(x, n=self.separate_len)
@@ -181,42 +147,9 @@ class Dataset:
             y = np.array(y)
 
             # タプルに変換
-            result_dict[key] = (x, y)
+            result_dict[protein] = (x, y)
 
         return result_dict
-
-    def _split(self, seqs, label_lists):
-        """ アミノ酸配列を指定された長さに分割する.
-
-        Args:
-            seqs, label_lists(list): アミノ酸配列・ラベルリストのリスト
-
-        Returns:
-            x(list of str): 分割されたアミノ酸断片
-            y(list of int): アミノ酸断片にSLiMが含まれる場合は0,
-                含まれない場合は1をラベリングしたリスト
-
-        """
-        x, y = [], []
-
-        for seq, label_list in zip(seqs, label_lists):
-            if self.random_split:
-                surplus = len(seq) % self.length
-                i = random.randint(0, surplus)
-            else:
-                i = 0
-
-            while (i <= len(seq) - self.length):
-                fragment = seq[i:(i+self.length)]
-                x.append(fragment)
-
-                slim_count = label_list[i:(i+self.length)].count(1)
-                has_slim = slim_count >= self.threshold
-                y.append(int(has_slim))
-
-                i += self.length
-
-        return x, y
 
     def _n_gram_split(self, seqs, label_lists):
         """ アミノ酸配列を分割し，n_gramのデータセットを作成
@@ -227,7 +160,7 @@ class Dataset:
         Returns:
             x(list of str): アミノ酸断片
             y(list of int): アミノ酸断片にSLiMが含まれる場合は0,
-                含まれない場合は1をラベリングしたリスト
+                含まれない場合は1をアノテーションしたリスト
         """
         x, y = [], []
 
