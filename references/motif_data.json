@@ -2,7 +2,7 @@
     {
         "virus": "Zaire ebolavirus",
         "location": ["Gene Symbol:VP40"],
-        "SLiM_proteins": ["VP40"],
+        "SLiM_protein": "VP40",
         "proteins": {"NP": ["NP", "nucleoprotein"],
                      "L": ["L", "polymerase"],
                      "GP": ["GP", "glycoprotein"],
@@ -20,7 +20,7 @@
     {
         "virus": "Lassa mammarenavirus",
         "location": ["Protein Name:Z"],
-        "SLiM_proteins": ["Z"],
+        "SLiM_protein": "Z",
         "proteins": {"NP": ["NP", "nucleoprotein"],
                      "L": ["L", "polymerase"],
                      "GPC": ["GPC", "glycoprotein"],
@@ -35,7 +35,7 @@
     {
         "virus": "Bluetongue virus",
         "location": ["NS3"],
-        "SLiM_proteins": ["NS3"],
+        "SLiM_protein": "NS3",
         "proteins": {"NS1": ["NS1"],
                      "NS2": ["NS2"],
                      "NS3": ["NS3"],
@@ -56,7 +56,7 @@
     {
         "virus": "Marburg virus",
         "location": ["Gene Symbol:NP", "Protein Name:nucleoprotein"],
-        "SLiM_proteins": ["NP"],
+        "SLiM_protein": "NP",
         "proteins": {"NP": ["NP", "nucleoprotein"],
                      "L": ["L", "polymerase"],
                      "GP": ["GP", "glycoprotein"],
