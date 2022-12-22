@@ -33,7 +33,7 @@ def evaluate(motif_data, model, seq_length, batch_size, threshold,
 
             cm = np.zeros((2, 2))
             for x, y_true in eval_ds:
-                y_pred = model.predict(x)
+                y_pred = model.predict_on_batch(x)
                 y_pred = np.squeeze(y_pred)
                 y_pred = (y_pred > threshold).astype(int)
                 y_true = np.squeeze(y_true)
