@@ -3,6 +3,7 @@ import math
 import numpy as np
 import json
 import pickle
+import itertools
 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -26,7 +27,6 @@ def preprocess_dataset(motif_data, processed_dir,
                 y = pickle.load(f)
 
             x = vocab.encode(x)
-            x = add_class_token(x)
 
             shuffle(x, y, seed)
 
@@ -90,147 +90,112 @@ def write_tfrecord(sequences, labels, filename):
     """ tf.data.Datasetに変換 """
     writer = tf.io.TFRecordWriter(filename)
     for sequence, label in zip(sequences, labels):
-        ex = make_example(sequence.tolist(), [int(label)])
+        ex = make_example(sequence, [int(label)])
 
         writer.write(ex.SerializeToString())
     writer.close()
 
 
 class Vocab:
-    def __init__(self, tokenizer):
-        self.tokenizer = tokenizer
+    """ アミノ酸配列をIDに変換したり，IDをアミノ酸配列に直したりする """
+    def __init__(self, separate_len, class_token=False,
+                 include_X=False):
+        self._amino_acids = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I',
+                            'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+        if include_X:
+            self._amino_acids.append('X')
 
-    def fit(self, texts):
-        """ 単語のベクトル化の準備
+        # list of str: <PAD>や<CLS>のようなトークンを保持
+        self.tokens = []
+
+        # int: 単語ベクトルひとつあたりのアミノ酸の数
+        self.separate_len = separate_len
+
+        # bool: Trueのとき，先頭にclassトークンを追加する
+        self.class_token = class_token
+
+        if self.class_token:
+            self.tokens.append('<CLS>')
+
+        self.amino_acids_dict, self.amino_acids_dict_reverse = \
+                self._mk_amino_acids_dict()
+
+    @property
+    def num_tokens(self):
+        return len(self.tokens)
+
+    def encode(self, seqs):
+        """
+        アミノ酸配列をIDに変換
 
         Arg:
-            texts([str], ndarray): 単語のリスト
-                e.g. ['VPTAPP',
-                      'ATSQVP']
+            seqs(list of str or ndarray): アミノ酸配列
 
         Return:
-            self(Vocab instance): 学習を完了したインスタンス
+            list of int: ID
 
         """
-        if type(texts).__module__ == 'numpy':
-            texts = np.squeeze(texts)
-            texts = texts.tolist()
+        seqs = np.squeeze(seqs)
 
-        self.tokenizer.fit_on_texts(texts)
-        return self
+        def to_id(word):
+            return self.amino_acids_dict[word]
 
-    def encode(self, texts):
-        """ 単語のリストを整数のリストに変換する
+        encoded_seqs = []
+        for seq in seqs:
+            words = []
+            for i in range(len(seq) - self.separate_len + 1):
+                words.append(seq[i:(i + self.separate_len)])
+
+            encoded_seqs.append(list(map(to_id, words)))
+
+        if self.class_token:
+            encoded_seqs = self._add_class_token(encoded_seqs)
+
+        return encoded_seqs
+
+    def decode(self, seqs):
+        """
+        IDをアミノ酸配列に変換
 
         Arg:
-            texts(list, ndarray): 単語のリスト
-
-        Return:
-            ndarray: shape=(n_samples, n_words)
-                e.g. [[0, 1, 2, 3, 4, 4],
-                      [3, 2, 5, 6, 0, 4]]
-
+            seqs: ID配列
         """
-        if type(texts).__module__ == 'numpy':
-            texts = np.squeeze(texts)
-            texts = texts.tolist()
+        def to_amino_acids(id):
+            return self.amino_acids_dict_reverse[id]
 
-        sequences = self.tokenizer.texts_to_sequences(texts)
-        sequences = pad_sequences(sequences, padding='post', value=0)
+        decoded_seqs = []
+        for seq in seqs:
+            if self.class_token:
+                seq = seq[1:]
 
-        return sequences
+            words = map(to_amino_acids, seq)
+            head = words.__next__()
+            words = map(lambda word: word[-1], words)
 
-    def decode(self, sequences, class_token=False):
-        """ 整数のリストを単語のリストに変換する
+            decoded_seq = head + ''.join(words)
+            decoded_seqs.append(decoded_seq)
 
-        Arg:
-            sequences(ndarray): 整数の配列
-                shape=(n_samples, n_words)
+        return decoded_seqs
 
-        Return:
-            [str]: 単語のリスト
+    def _mk_amino_acids_dict(self):
+        amino_acids_dict, amino_acids_dict_reverse = {}, {}
 
-        """
-        if class_token:  # class_tokenを削除
-            sequences = np.delete(sequences, 0, axis=-1)
+        amino_acids_permutations = [''.join(permutations) for permutations
+                in itertools.product(self._amino_acids, repeat=self.separate_len)]
 
-        # ndarrayからlistに変換
-        sequences = sequences.tolist()
+        for i, amino_acid in enumerate(amino_acids_permutations):
+            amino_acids_dict[amino_acid] = i + self.num_tokens
+            amino_acids_dict_reverse[i + self.num_tokens] = amino_acid
 
-        for i, seq in enumerate(sequences):
-            try:  # 0が存在しない場合はValueError
-                pad_idx = seq.index(0)
-            except ValueError:
-                continue
+        return amino_acids_dict, amino_acids_dict_reverse
 
-            sequences[i] = seq[:pad_idx]
+    def _add_class_token(self, seqs):
+        class_token = 0
 
-        if class_token:
-            for i, seq in enumerate(sequences):
-                sequences[i] = list(map(lambda x: x-1, seq))
+        def add_class_token_one(seq):
+            return [class_token] + seq
 
-        texts = self.tokenizer.sequences_to_texts(sequences)
-
-        for i, text in enumerate(texts):
-            text = text.split()
-            text = [text[0]] + list(map(lambda word: word[0], text[1:]))
-            texts[i] = ''.join(text)
-
-        return texts
-
-def pad_dataset(sequences, class_token=False):
-    """ paddingを行う
-
-    paddingの値は0，<CLS>トークンは1とする．
-
-    Arg:
-        sequences: list of int
-        class_token: Trueの場合，Transformerでクラスタリングを行う際に
-            用いる<CLS>トークンを先頭に追加する．
-    Return:
-        ndarray: shape=(len(sequences), max_len)
-            class_token=True の時は，shape=(len(sequences), max_len + 1)
-    """
-    if class_token:
-        for i, seq in enumerate(sequences):
-            sequences[i] = list(map(lambda x: x+1, seq))
-
-    # shape=(len(sequences), max_len)
-    sequences = pad_sequences(sequences, padding='post', value=0)
-
-    if class_token:  # class_tokenを追加
-        # class_id = 1
-        cls_arr = np.ones((len(sequences), 1))     # shape=(len(sequences), 1)
-        sequences = np.hstack([cls_arr, sequences]).astype('int64')
-
-    return sequences
-
-def add_class_token(sequences):
-    """ class token を先頭に付加する
-
-    class token として1を用いる．
-
-    Arg:
-        sequences: list of int
-            shape=(n_sequence, len)
-
-    Return:
-        ndarray: shape=(n_sequences, len + 1)
-    """
-    if isinstance(sequences, list):
-        sequences = np.array(sequences)
-
-    sequences += 1
-
-    sequences = np.array(sequences)
-    mask = (sequences == 1)
-    sequences[mask] = 0
-
-    # class_token = 1
-    cls_arr = np.ones((len(sequences), 1))     # shape=(len(sequences), 1)
-    sequences = np.hstack([cls_arr, sequences]).astype('int64')
-
-    return sequences
+        return list(map(add_class_token_one, seqs))
 
 def load_dataset(filename, batch_size, length, buffer_size=1000):
     def dict2tuple(feat):

@@ -72,8 +72,7 @@ def main():
                     motif_data=motif_data,
                     length=length,
                     virus=virus,
-                    fasta_dir=fasta_dir,
-                    separate_len=separate_len)
+                    fasta_dir=fasta_dir)
 
             # TEST======================================================
             for key, (x, y) in dataset.items():
@@ -90,21 +89,7 @@ def main():
                     pickle.dump(x, f)
                     pickle.dump(y, f)
 
-    if not os.path.exists(vocab_path):
-        print("================== FITTING =========================")
-        vocab = fit_vocab(motif_data=motif_data,
-                          num_words=num_words,
-                          dataset_dir=processed_dir,
-                          vocab_path=vocab_path)
-
-        with open(vocab_path, 'wb') as f:
-            pickle.dump(vocab.tokenizer, f)
-
-    else:
-        with open(vocab_path, 'rb') as f:
-            tokenizer = pickle.load(f)
-        vocab = Vocab(tokenizer)
-
+    vocab = Vocab(separate_len=separate_len, class_token=True)
 
     if not (os.path.exists(train_tfrecord_path) \
             and os.path.exists(test_tfrecord_path)):
@@ -146,7 +131,7 @@ def main():
              batch_size=batch_size,
              threshold=threshold,
              eval_tfrecord_dir=eval_tfrecord_dir,
-             vocab_path=vocab_path,
+             vocab=vocab,
              result_path=result_path,
              false_positive_path=false_positive_path,
              positive_pred_path=positive_pred_path)

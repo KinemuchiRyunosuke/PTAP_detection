@@ -9,7 +9,7 @@ from preprocessing import Vocab, load_dataset
 
 
 def evaluate(motif_data, model, seq_length, batch_size, threshold,
-             eval_tfrecord_dir, vocab_path, result_path,
+             eval_tfrecord_dir, vocab, result_path,
              false_positive_path, positive_pred_path):
     if os.path.exists(false_positive_path):
         os.remove(false_positive_path)
@@ -39,16 +39,12 @@ def evaluate(motif_data, model, seq_length, batch_size, threshold,
                 y_true = np.squeeze(y_true)
                 cm += confusion_matrix(y_true, y_pred, labels=[0, 1])
 
-                with open(vocab_path, 'rb') as f:
-                    tokenizer = pickle.load(f)
-                vocab = Vocab(tokenizer)
-
                 # 偽陽性データを保存
                 x_fp = x[(y_true == 0) & (y_pred == 1)]
-                x_fp = vocab.decode(x_fp, class_token=True)
+                x_fp = vocab.decode(x_fp.numpy())
 
                 x_pos_pred = x[(y_pred == 1)]
-                x_pos_pred = vocab.decode(x_pos_pred, class_token=True)
+                x_pos_pred = vocab.decode(x_pos_pred.numpy())
 
                 for seq in x_fp:
                     with open(false_positive_path, 'a') as f:

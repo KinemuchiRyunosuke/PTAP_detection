@@ -6,7 +6,7 @@ from Bio import SeqIO
 from utils import determine_protein_name
 
 
-def make_dataset(motif_data, length, virus, fasta_dir, separate_len):
+def make_dataset(motif_data, length, virus, fasta_dir):
     # 対象となるウイルスのJSONデータを取得
     data = None
     for content in motif_data:
@@ -25,8 +25,7 @@ def make_dataset(motif_data, length, virus, fasta_dir, separate_len):
             SLiM_protein=data['SLiM_protein'],
             neighbor=data['neighbor'],
             replacement_tolerance=data['replacement_tolerance'],
-            threshold=len(data['SLiM']),
-            separate_len=separate_len)
+            threshold=len(data['SLiM']))
 
     dataset = dataset_maker.make_dataset(records, dict=True)
     return dataset
@@ -36,7 +35,7 @@ class Dataset:
 
     def __init__(self, SLiM, idx, length=10, proteins=None, neighbor=None,
                  SLiM_protein=None, remove_X=True, replacement_tolerance=1,
-                 threshold=None, separate_len=None):
+                 threshold=None):
         self.SLiM = SLiM            # str: アノテーションするSLiM配列
         self.idx = idx              # int: SLiMの開始位置
         self.length = length        # int: 断片の長さ
@@ -63,10 +62,6 @@ class Dataset:
             self.threshold = threshold
         else:
             self.threshold = len(self.SLiM)
-
-        # int: n連続アミノ酸でベクトルを生成するときは長さを指定する．
-        #   Noneを指定するとn連続アミノ酸頻度に分割しない．
-        self.separate_len = separate_len
 
     def make_dataset(self, records, dict=False):
         """ レコードのリストからアミノ酸配列・アノテーションリストを取得
@@ -139,9 +134,6 @@ class Dataset:
         result_dict = {}
         for protein in self.proteins.keys():
             x, y = self._n_gram_split(seq_dict[protein], label_dict[protein])
-
-            if self.separate_len is not None:
-                x = separate(x, n=self.separate_len)
 
             x = np.array(x).reshape(-1, 1)
             y = np.array(y)
@@ -238,31 +230,6 @@ class Dataset:
             label = 1
 
         return label
-
-def separate(seqs, n=2):
-    """ n残基ずつに分ける
-
-    Args:
-        seqs(ndarray, list): 操作を行う配列
-        n(int): n残基ずつに分ける
-
-    Returns:
-        list of str
-
-    """
-    if type(seqs).__module__ == 'numpy':
-        seqs = np.squeeze(seqs)
-        seqs = seqs.tolist()
-
-    separated_seqs = []
-    for seq in seqs:
-        fragments = []
-        for i in range(len(seq) - n + 1):
-            fragments.append(seq[i:i+n])
-
-        separated_seqs.append(' '.join(fragments))
-
-    return separated_seqs
 
 def extract(fastafile, keywords=None, proteins=None):
     """ FASTAファイルからヘッダー行にkeywordを含む配列を抽出する
