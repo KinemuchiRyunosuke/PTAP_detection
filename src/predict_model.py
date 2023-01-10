@@ -4,11 +4,10 @@ import pickle
 import tensorflow as tf
 
 from dataset import make_dataset
-from fit_vocab import fit_vocab
-from preprocessing import preprocess_dataset, write_tfrecord, Vocab
+from preprocessing import preprocess_dataset, Vocab
 from train_model import train
 from evaluate import evaluate
-from models.transformer import BinaryClassificationTransformer
+from model import build_model
 
 
 # parameters
@@ -96,21 +95,22 @@ def main():
         print("================== PREPROCESSING ===================")
 
         # データセットの前処理
-        x_train, x_test, y_train, y_test = \
-            preprocess_dataset(
-                motif_data=motif_data,
-                processed_dir=processed_dir,
-                eval_tfrecord_dir=eval_tfrecord_dir,
-                vocab=vocab,
-                n_pos_neg_path=n_pos_neg_path,
-                val_rate=val_rate,
-                seed=seed)
+        preprocess_dataset(
+            motif_data=motif_data,
+            processed_dir=processed_dir,
+            train_tfrecord_path=train_tfrecord_path,
+            test_tfrecord_path=test_tfrecord_path,
+            eval_tfrecord_dir=eval_tfrecord_dir,
+            vocab=vocab,
+            n_pos_neg_path=n_pos_neg_path,
+            val_rate=val_rate,
+            seed=seed)
 
-        # tf.data.Datasetとして保存
-        write_tfrecord(x_test, y_test, test_tfrecord_path)
-        write_tfrecord(x_train, y_train, train_tfrecord_path)
 
-    model = create_model()
+    model = build_model()
+    model.compile(optimizer=tf.keras.optimizers.Adam(
+                                learning_rate=lr),
+                 loss="sparse_categorical_crossentropy")
 
     if not os.path.exists(checkpoint_path):
         print("================== TRAINING ========================")
@@ -151,26 +151,6 @@ def finish_making_dataset(motif_data):
 
     return finish
 
-
-def create_model():
-    """ モデルを定義する """
-    model = BinaryClassificationTransformer(
-                vocab_size=num_words + num_tokens,
-                hopping_num=hopping_num,
-                head_num=head_num,
-                hidden_dim=hidden_dim,
-                dropout_rate=dropout_rate)
-    model.compile(optimizer=tf.keras.optimizers.Adam(
-                                learning_rate=lr),
-                 loss='binary_crossentropy',
-                 metrics=[tf.keras.metrics.Precision(
-                            thresholds=threshold,
-                            name='precision'),
-                          tf.keras.metrics.Recall(
-                            thresholds=threshold,
-                            name='recall')])
-
-    return model
 
 if __name__ == '__main__':
     main()

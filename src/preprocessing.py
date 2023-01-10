@@ -11,6 +11,7 @@ from imblearn.under_sampling import RandomUnderSampler
 
 
 def preprocess_dataset(motif_data, processed_dir,
+                       train_tfrecord_path, test_tfrecord_path,
                        eval_tfrecord_dir,
                        vocab, n_pos_neg_path,
                        val_rate=0.2, seed=1):
@@ -32,6 +33,9 @@ def preprocess_dataset(motif_data, processed_dir,
 
             # データセットを学習用と検証用に分割
             boundary = math.floor(len(x) * val_rate)
+
+            def attention_mask(n_samples, n_dim):
+                return np.ones((n_samples, n_dim), dtype=int).tolist()
 
             # 評価用データセットとしてunder-samplingしていないデータを残しておく
             eval_tfrecord_path = os.path.join(os.path.join(
@@ -68,8 +72,9 @@ def preprocess_dataset(motif_data, processed_dir,
     shuffle(x_test, y_test, seed)
     shuffle(x_train, y_train, seed)
 
-    return x_train, x_test, y_train, y_test
-
+    # tf.data.Datasetとして保存
+    write_tfrecord(x_test, y_test, test_tfrecord_path)
+    write_tfrecord(x_train, y_train, train_tfrecord_path)
 
 def shuffle(x, y, seed):
     np.random.seed(seed)
@@ -77,8 +82,7 @@ def shuffle(x, y, seed):
     np.random.seed(seed)
     np.random.shuffle(y)
 
-
-def make_example(sequence, label):
+def make_example(sequence, label, attention_mask):
     return tf.train.Example(features=tf.train.Features(feature={
         'x': tf.train.Feature(
                 int64_list=tf.train.Int64List(value=sequence)),
@@ -86,11 +90,12 @@ def make_example(sequence, label):
                 int64_list=tf.train.Int64List(value=label))
     }))
 
-def write_tfrecord(sequences, labels, filename):
+def write_tfrecord(sequences, labels, attention_masks, filename):
     """ tf.data.Datasetに変換 """
     writer = tf.io.TFRecordWriter(filename)
-    for sequence, label in zip(sequences, labels):
-        ex = make_example(sequence, [int(label)])
+    for sequence, label, attention_mask in \
+            zip(sequences, labels, attention_masks):
+        ex = make_example(sequence, [int(label)], attention_mask)
 
         writer.write(ex.SerializeToString())
     writer.close()
