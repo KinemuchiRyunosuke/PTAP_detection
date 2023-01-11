@@ -82,7 +82,7 @@ def shuffle(x, y, seed):
     np.random.seed(seed)
     np.random.shuffle(y)
 
-def make_example(sequence, label, attention_mask):
+def make_example(sequence, label):
     return tf.train.Example(features=tf.train.Features(feature={
         'x': tf.train.Feature(
                 int64_list=tf.train.Int64List(value=sequence)),
@@ -90,12 +90,11 @@ def make_example(sequence, label, attention_mask):
                 int64_list=tf.train.Int64List(value=label))
     }))
 
-def write_tfrecord(sequences, labels, attention_masks, filename):
+def write_tfrecord(sequences, labels, filename):
     """ tf.data.Datasetに変換 """
     writer = tf.io.TFRecordWriter(filename)
-    for sequence, label, attention_mask in \
-            zip(sequences, labels, attention_masks):
-        ex = make_example(sequence, [int(label)], attention_mask)
+    for sequence, label in zip(sequences, labels):
+        ex = make_example(sequence, [int(label)])
 
         writer.write(ex.SerializeToString())
     writer.close()

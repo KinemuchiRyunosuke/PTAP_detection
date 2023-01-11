@@ -30,7 +30,7 @@ beta = 0.5              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
 
 # TEST===========================================================
-batch_size = 100000
+batch_size = 100
 epochs = 1
 hopping_num = 1
 hidden_dim = 8
@@ -75,7 +75,7 @@ def main():
 
             # TEST======================================================
             for key, (x, y) in dataset.items():
-                dataset[key] = (x[:10000], y[:10000])
+                dataset[key] = (x[:1000], y[:1000])
             #===========================================================
 
             if not os.path.exists(out_dir):
@@ -107,24 +107,29 @@ def main():
             seed=seed)
 
 
-    model = build_model()
+    model = build_model(
+            hidden_size=hidden_dim,
+            vocab_size=num_words + num_tokens,
+            num_attention_heads=head_num,
+            num_hidden_layers=hopping_num,
+            attention_probs_dropout_prob=dropout_rate
+    )
     model.compile(optimizer=tf.keras.optimizers.Adam(
                                 learning_rate=lr),
                  loss="sparse_categorical_crossentropy")
 
     if not os.path.exists(checkpoint_path):
         print("================== TRAINING ========================")
-        train(model=model,
-              seq_length=length - separate_len + 2,
-              batch_size=batch_size,
-              epochs=epochs,
-              n_pos_neg_path=n_pos_neg_path,
-              train_tfrecord_path=train_tfrecord_path,
-              test_tfrecord_path=test_tfrecord_path,
-              checkpoint_path=model_dir)
+        model = train(model=model,
+                      seq_length=length - separate_len + 2,
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      n_pos_neg_path=n_pos_neg_path,
+                      train_tfrecord_path=train_tfrecord_path,
+                      test_tfrecord_path=test_tfrecord_path,
+                      checkpoint_path=model_dir)
 
     print("================== EVALUATION ======================")
-    model.load_weights(os.path.dirname(checkpoint_path))
     evaluate(motif_data=motif_data,
              model=model,
              seq_length=length - separate_len + 2,

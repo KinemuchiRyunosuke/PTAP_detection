@@ -44,3 +44,5 @@ def train(model, seq_length, batch_size, epochs, n_pos_neg_path,
             shuffle=True,
             class_weight=class_weight,
             verbose=1)
+
+    return model
