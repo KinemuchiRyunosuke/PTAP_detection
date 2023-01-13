@@ -17,7 +17,6 @@ val_rate = 0.2
 num_amino_acid = 20
 separate_len = 1
 num_words = num_amino_acid ** separate_len
-num_tokens = 2
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -109,7 +108,7 @@ def main():
 
     model = build_model(
             hidden_size=hidden_dim,
-            vocab_size=num_words + num_tokens,
+            vocab_size=num_words + vocab.num_tokens,
             num_attention_heads=head_num,
             num_hidden_layers=hopping_num,
             attention_probs_dropout_prob=dropout_rate

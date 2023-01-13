@@ -110,7 +110,7 @@ class Vocab:
             self._amino_acids.append('X')
 
         # list of str: <PAD>や<CLS>のようなトークンを保持
-        self.tokens = []
+        self.tokens = ['<UNK>']
 
         # int: 単語ベクトルひとつあたりのアミノ酸の数
         self.separate_len = separate_len
@@ -139,10 +139,14 @@ class Vocab:
             list of int: ID
 
         """
-        seqs = np.squeeze(seqs)
+        seqs = np.squeeze(seqs).reshape(-1)
 
         def to_id(word):
-            return self.amino_acids_dict[word]
+            try:
+                id = self.amino_acids_dict[word]
+            except KeyError:
+                id = self.tokens.index('<UNK>')
+            return id
 
         encoded_seqs = []
         for seq in seqs:
@@ -165,7 +169,11 @@ class Vocab:
             seqs: ID配列
         """
         def to_amino_acids(id):
-            return self.amino_acids_dict_reverse[id]
+            try:
+                word = self.amino_acids_dict_reverse[id]
+            except KeyError:
+                word = 'X'
+            return word
 
         decoded_seqs = []
         for seq in seqs:
@@ -194,10 +202,10 @@ class Vocab:
         return amino_acids_dict, amino_acids_dict_reverse
 
     def _add_class_token(self, seqs):
-        class_token = 0
+        class_id = self.tokens.index('<CLS>')
 
         def add_class_token_one(seq):
-            return [class_token] + seq
+            return [class_id] + seq
 
         return list(map(add_class_token_one, seqs))
 

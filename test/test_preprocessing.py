@@ -8,8 +8,8 @@ class TestVocab(unittest.TestCase):
     def test_separate_len1(self):
         seqs = ['ARNDCQEGHI',
                 'LKMFPSTWYV']
-        answer = [[0,1,2,3,4,5,6,7,8,9,10],
-                  [0,11,12,13,14,15,16,17,18,19,20]]
+        answer = [[1,2,3,4,5,6,7,8,9,10,11],
+                  [1,12,13,14,15,16,17,18,19,20,21]]
 
         vocab = Vocab(separate_len=1, class_token=True)
         encoded_seqs = vocab.encode(seqs)
@@ -32,8 +32,8 @@ class TestVocab(unittest.TestCase):
     def test_class_token_false(self):
         seqs = ['ARNDCQEGHI',
                 'LKMFPSTWYV']
-        answer = [[0,1,2,3,4,5,6,7,8,9],
-                  [10,11,12,13,14,15,16,17,18,19]]
+        answer = [[1,2,3,4,5,6,7,8,9,10],
+                  [11,12,13,14,15,16,17,18,19,20]]
 
         vocab = Vocab(separate_len=1, class_token=False)
         encoded_seqs = vocab.encode(seqs)
@@ -42,6 +42,18 @@ class TestVocab(unittest.TestCase):
 
         decoded_seqs = vocab.decode(encoded_seqs)
         self.assertEqual(decoded_seqs, seqs)
+
+    def test_J(self):
+        seqs = ['ARNJJJDCQ']
+        encode_answer = [[1,2,3,4,0,0,0,5,6,7]]
+        decode_answer = ['ARNXXXDCQ']
+
+        vocab = Vocab(separate_len=1, class_token=True)
+        encoded_seqs = vocab.encode(seqs)
+        self.assertEqual(encoded_seqs, encode_answer)
+
+        decoded_seqs = vocab.decode(encoded_seqs)
+        self.assertEqual(decoded_seqs, decode_answer)
 
 
 class TestFuncs(unittest.TestCase):
