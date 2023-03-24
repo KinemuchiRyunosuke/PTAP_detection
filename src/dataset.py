@@ -79,7 +79,7 @@ class Dataset:
         Return:
             if dict == False:
                 x(ndarray): アミノ酸配列, shape=(n_samples, 1)
-                y(ndarray): アノテーションデータ, shape=(n_samples,)
+                y(ndarray): アノテーションデータ, shape=(n_samples, seq_len)
             if dict == True:
                 tupple of dict: {protein_name: (sequences, labels)}
                     protein_name: str
@@ -289,7 +289,6 @@ def extract(fastafile, keywords=None, proteins=None):
                         record.description, proteins)
 
                 if protein_name is None:
-                    print(protein_name)
                     continue
 
                 if protein_name in keywords:
