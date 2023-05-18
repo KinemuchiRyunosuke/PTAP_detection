@@ -3,7 +3,8 @@ import numpy as np
 from Bio import SeqIO
 
 
-def make_dataset(motif_data, length, virus, fasta_dir, separate_len):
+def make_dataset(motif_data, length, virus, fasta_dir,
+                 separate_len, rm_positive_neighbor):
     # 対象となるウイルスのJSONデータを取得
     data = None
     for content in motif_data:
@@ -18,7 +19,8 @@ def make_dataset(motif_data, length, virus, fasta_dir, separate_len):
     dataset = Dataset(
             motifs=data['motifs'],
             length=length,
-            separate_len=separate_len)
+            separate_len=separate_len,
+            rm_positive_neighbor=rm_positive_neighbor)
 
     xs, ys = dataset.make_dataset(records)
     return xs, ys
@@ -26,7 +28,7 @@ def make_dataset(motif_data, length, virus, fasta_dir, separate_len):
 
 class Dataset:
     def __init__(self, motifs, length=10,
-                 remove_X=True, separate_len=None):
+                 remove_X=True, separate_len=None, rm_positive_neighbor=0):
         self.motifs = motifs        # dict: アノテーションするmotif配列情報
         self.length = length        # int: 断片の長さ
 
@@ -36,6 +38,9 @@ class Dataset:
         # int: n連続アミノ酸でベクトルを生成するときは長さを指定する．
         #   Noneを指定するとn連続アミノ酸頻度に分割しない．
         self.separate_len = separate_len
+
+        # int: 陽性となった断片の近傍n個のデータセットを除去する．
+        self.rm_positive_neighbor = rm_positive_neighbor
 
     def make_dataset(self, records):
         xs = []
@@ -87,6 +92,9 @@ class Dataset:
             y.append(int(self._has_motif(label_list[i:(i + self.length)])))
             i += 1
 
+        if self.rm_positive_neighbor > 0:
+            x, y = self._rm_positive_neighbor(x, y)
+
         return x, y
 
     def _has_motif(self, labels):
@@ -109,6 +117,27 @@ class Dataset:
                         break
 
         return has_motif
+
+    def _rm_positive_neighbor(self, x, y):
+        rm_labels = [False] * len(y)
+        for i, label in enumerate(y):
+            if label == 0:
+                continue
+
+            for j in range(self.rm_positive_neighbor):
+                rm_id_up = max(0, i - j - 1)
+                rm_id_down = min(len(y) - 1, i + j + 1)
+
+                if y[rm_id_up] == 0:
+                    rm_labels[rm_id_up] = True
+
+                if y[rm_id_down] == 0:
+                    rm_labels[rm_id_down] = True
+
+        x = [seq for i, seq in enumerate(x) if not rm_labels[i]]
+        y = [label for i, label in enumerate(y) if not rm_labels[i]]
+
+        return x, y
 
     def _annotate(self, record, ignore_not_motif_protein=True):
         """ ラベルリストを作成

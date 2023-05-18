@@ -98,7 +98,7 @@ class TestDataset2(unittest.TestCase):
         self.assertTrue((ys == correct_ys).all())
 
 
-class TestDataset2(unittest.TestCase):
+class TestDataset3(unittest.TestCase):
     def setUp(self):
         virus = 'HIV-1'
         length = 10
@@ -163,3 +163,50 @@ class TestDataset2(unittest.TestCase):
         xs, ys = self.dataset.make_dataset(self.records)
         self.assertTrue((xs == correct_xs).all())
         self.assertTrue((ys == correct_ys).all())
+
+class TestDataset4(unittest.TestCase):
+    def setUp(self):
+        self.length = 4
+
+        virus = 'HIV-1'
+        separate_len = 1
+        fasta_path= 'tests/test_fasta.fasta'
+        rm_positive_neighbor = 2
+
+        motif_data_path = "tests/test_motif_data.json"
+        with open(motif_data_path, 'r') as f:
+            motif_data = json.load(f)
+
+        # 対象となるウイルスのJSONデータを取得
+        data = None
+        for content in motif_data:
+            if content['virus'].replace(' ', '_') == virus:
+                data = content
+                break
+
+        with open(fasta_path, 'r') as f:
+            self.records = [record for record in SeqIO.parse(f, 'fasta')]
+
+        self.dataset = Dataset(
+                motifs=data['motifs'],
+                length=self.length,
+                separate_len=separate_len,
+                rm_positive_neighbor=rm_positive_neighbor)
+
+    def test_rm_positive_neighbor(self):
+        x = ['ABCD', 'BCDE', 'CDEF', 'DEFG', 'EFGH', 'FGHI', 'GHIJ', \
+             'HIJK', 'IJKL', 'JKLM', 'KLMN', 'LMNO', 'MNOP', 'NOPQ', \
+             'OPQR', 'PQRS', 'QRST', 'RSTU', 'STUV', 'TUVW', 'UVWX']
+        y = [0, 0, 0, 1, 1, 1, 1, \
+             0, 0, 0, 0, 0, 1, 1, \
+             1, 0, 0, 0, 0, 0, 1]
+
+        correct_x = \
+            ['ABCD', 'DEFG', 'EFGH', 'FGHI', 'GHIJ', \
+             'JKLM', 'MNOP', 'NOPQ', \
+             'OPQR', 'RSTU', 'UVWX']
+        correct_y = [0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1]
+
+        x, y = self.dataset._rm_positive_neighbor(x, y)
+        self.assertEqual(x, correct_x)
+        self.assertEqual(y, correct_y)
