@@ -4,30 +4,39 @@
         "motifs": [
             {
                 "protein": "tat",
-                "protein_subname": ["tat", "Tat", "TAT ", "TAT,"],
-                "subsequence": "RKKRRQ",
+                "protein_subname": ["tat", "Tat"],
+                "motif_upstream_seq": "P",
+                "motif_seq": "QQQQ",
+                "motif_downstream_seq": "R",
+                "subsequence": "PQQQQR",
                 "start_index": 49,
                 "end_index": 54,
                 "neighbor": null,
-                "replacement_tolerance": 2
+                "replacement_tolerance": 1
             },
             {
                 "protein": "tat",
-                "protein_subname": ["tat", "Tat", "TAT ", "TAT,"],
-                "subsequence": "LPTAPP",
+                "protein_subname": ["tat", "Tat"],
+                "motif_upstream_seq": "A",
+                "motif_seq": "BCD",
+                "motif_downstream_seq": "E",
+                "subsequence": "ABCDE",
                 "start_index": 22,
-                "end_index": 27,
+                "end_index": 26,
                 "neighbor": null,
-                "replacement_tolerance": 2
+                "replacement_tolerance": 1
             },
             {
                 "protein": "env",
                 "protein_subname": ["env"],
-                "subsequence": "KDPFKN",
+                "motif_upstream_seq": "FG",
+                "motif_seq": "HIJ",
+                "motif_downstream_seq": "K",
+                "subsequence": "FGHIJK",
                 "start_index": 26,
                 "end_index": 31,
                 "neighbor": null,
-                "replacement_tolerance": 3
+                "replacement_tolerance": 1
             }
         ]
     }

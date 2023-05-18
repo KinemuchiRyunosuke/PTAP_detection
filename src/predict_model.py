@@ -17,8 +17,9 @@ test_mode = True
 length = 26
 n_gram = True
 val_rate = 0.2
-num_amino_acid = 20
+num_amino_acid = 23
 separate_len = 1
+rm_positive_neighbor = 3
 num_words = num_amino_acid ** separate_len
 num_tokens = 2
 batch_size = 1024
@@ -73,7 +74,8 @@ def main():
                     length=length,
                     virus=virus,
                     fasta_dir=fasta_dir,
-                    separate_len=separate_len)
+                    separate_len=separate_len,
+                    rm_positive_neighbor=rm_positive_neighbor)
 
             if test_mode:
                 xs = xs[:10000]
