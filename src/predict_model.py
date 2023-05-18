@@ -11,6 +11,8 @@ from evaluate import evaluate
 from models.transformer import BinaryClassificationTransformer
 
 
+test_mode = True
+
 # parameters
 length = 26
 n_gram = True
@@ -30,12 +32,11 @@ lr = 2.60e-5            # 学習率
 beta = 0.5              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
 
-# TEST===========================================================
-batch_size = 100000
-epochs = 1
-hopping_num = 1
-hidden_dim = 8
-# ===============================================================
+if test_mode:
+    batch_size = 100000
+    epochs = 1
+    hopping_num = 1
+    hidden_dim = 8
 
 # paths
 motif_data_path = 'references/motif_data.json'
@@ -67,35 +68,28 @@ def main():
         # データセットを生成
         for content in motif_data:
             virus = content['virus'].replace(' ', '_')
-            out_dir = os.path.join(processed_dir, virus)
-            dataset = make_dataset(
+            xs, ys = make_dataset(
                     motif_data=motif_data,
                     length=length,
                     virus=virus,
                     fasta_dir=fasta_dir,
                     separate_len=separate_len)
 
-            # TEST======================================================
-            for key, (x, y) in dataset.items():
-                dataset[key] = (x[:10000], y[:10000])
-            #===========================================================
-
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
+            if test_mode:
+                xs = xs[:10000]
+                ys = ys[:10000]
 
             # データセットを保存
-            for protein, (x, y) in dataset.items():
-                out_path = os.path.join(out_dir, f'{protein}.pickle')
-                with open(out_path, 'wb') as f:
-                    pickle.dump(x, f)
-                    pickle.dump(y, f)
+            out_path = os.path.join(processed_dir, f'{virus}.pickle')
+            with open(out_path, 'wb') as f:
+                pickle.dump(xs, f)
+                pickle.dump(ys, f)
 
     if not os.path.exists(vocab_path):
         print("================== FITTING =========================")
         vocab = fit_vocab(motif_data=motif_data,
                           num_words=num_words,
-                          dataset_dir=processed_dir,
-                          vocab_path=vocab_path)
+                          dataset_dir=processed_dir)
 
         with open(vocab_path, 'wb') as f:
             pickle.dump(vocab.tokenizer, f)
@@ -157,12 +151,10 @@ def finish_making_dataset(motif_data):
 
     for content in motif_data:
         virus = content['virus'].replace(' ', '_')
-        dataset_dir = os.path.join(processed_dir, virus)
-        for protein in content['proteins']:
-            dataset_path = os.path.join(dataset_dir, f'{protein}.pickle')
+        dataset_path = os.path.join(processed_dir, f'{virus}.pickle')
 
-            if not os.path.exists(dataset_path):
-                finish = False
+        if not os.path.exists(dataset_path):
+            finish = False
 
     return finish
 

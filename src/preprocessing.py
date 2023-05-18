@@ -16,33 +16,31 @@ def preprocess_dataset(motif_data, processed_dir,
     x_train, y_train, x_test, y_test = [], [], [], []
     for data in motif_data:
         virusname = data['virus'].replace(' ', '_')
-        dataset_dir = os.path.join(processed_dir, virusname)
 
-        for protein in data['proteins'].keys():
-            # アミノ酸断片データセットを読み込み
-            processed_path = os.path.join(dataset_dir, f'{protein}.pickle')
-            with open(processed_path, 'rb') as f:
-                x = pickle.load(f)
-                y = pickle.load(f)
+        # アミノ酸断片データセットを読み込み
+        processed_path = os.path.join(processed_dir, f'{virusname}.pickle')
+        with open(processed_path, 'rb') as f:
+            x = pickle.load(f)
+            y = pickle.load(f)
 
-            x = vocab.encode(x)
-            x = add_class_token(x)
+        x = vocab.encode(x)
+        x = add_class_token(x)
 
-            shuffle(x, y, seed)
+        shuffle(x, y, seed)
 
-            # データセットを学習用と検証用に分割
-            boundary = math.floor(len(x) * val_rate)
+        # データセットを学習用と検証用に分割
+        boundary = math.floor(len(x) * val_rate)
 
-            # 評価用データセットとしてunder-samplingしていないデータを残しておく
-            eval_tfrecord_path = os.path.join(os.path.join(
-                    eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
-            os.makedirs(os.path.dirname(eval_tfrecord_path), exist_ok=True)
-            write_tfrecord(x[:boundary], y[:boundary], eval_tfrecord_path)
+        # 評価用データセットとしてunder-samplingしていないデータを残しておく
+        eval_tfrecord_path = os.path.join(
+                eval_tfrecord_dir, f'{virusname}.tfrecord')
+        os.makedirs(os.path.dirname(eval_tfrecord_path), exist_ok=True)
+        write_tfrecord(x[:boundary], y[:boundary], eval_tfrecord_path)
 
-            x_test.append(x[:boundary])
-            y_test.append(y[:boundary])
-            x_train.append(x[boundary:])
-            y_train.append(y[boundary:])
+        x_test.append(x[:boundary])
+        y_test.append(y[:boundary])
+        x_train.append(x[boundary:])
+        y_train.append(y[boundary:])
 
     x_test, x_train = np.vstack(x_test), np.vstack(x_train)
     y_test, y_train = np.hstack(y_test), np.hstack(y_train)
@@ -76,7 +74,6 @@ def shuffle(x, y, seed):
     np.random.shuffle(x)
     np.random.seed(seed)
     np.random.shuffle(y)
-
 
 def make_example(sequence, label):
     return tf.train.Example(features=tf.train.Features(feature={
@@ -165,10 +162,6 @@ class Vocab:
 
             sequences[i] = seq[:pad_idx]
 
-        if class_token:
-            for i, seq in enumerate(sequences):
-                sequences[i] = list(map(lambda x: x-1, seq))
-
         texts = self.tokenizer.sequences_to_texts(sequences)
 
         for i, text in enumerate(texts):
@@ -178,37 +171,10 @@ class Vocab:
 
         return texts
 
-def pad_dataset(sequences, class_token=False):
-    """ paddingを行う
-
-    paddingの値は0，<CLS>トークンは1とする．
-
-    Arg:
-        sequences: list of int
-        class_token: Trueの場合，Transformerでクラスタリングを行う際に
-            用いる<CLS>トークンを先頭に追加する．
-    Return:
-        ndarray: shape=(len(sequences), max_len)
-            class_token=True の時は，shape=(len(sequences), max_len + 1)
-    """
-    if class_token:
-        for i, seq in enumerate(sequences):
-            sequences[i] = list(map(lambda x: x+1, seq))
-
-    # shape=(len(sequences), max_len)
-    sequences = pad_sequences(sequences, padding='post', value=0)
-
-    if class_token:  # class_tokenを追加
-        # class_id = 1
-        cls_arr = np.ones((len(sequences), 1))     # shape=(len(sequences), 1)
-        sequences = np.hstack([cls_arr, sequences]).astype('int64')
-
-    return sequences
-
 def add_class_token(sequences):
     """ class token を先頭に付加する
 
-    class token として1を用いる．
+    class token として0を用いる．
 
     Arg:
         sequences: list of int
@@ -226,8 +192,8 @@ def add_class_token(sequences):
     mask = (sequences == 1)
     sequences[mask] = 0
 
-    # class_token = 1
-    cls_arr = np.ones((len(sequences), 1))     # shape=(len(sequences), 1)
+    # class_token = 0
+    cls_arr = np.zeros((len(sequences), 1))     # shape=(len(sequences), 1)
     sequences = np.hstack([cls_arr, sequences]).astype('int64')
 
     return sequences
