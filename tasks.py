@@ -25,30 +25,14 @@ def clear(c):
     # data/processed/ のファイルを削除
     for content in motif_data:
         virus = content['virus'].replace(' ', '_')
-        out_dir = os.path.join(processed_dir, virus)
-
-        for protein in content['proteins']:
-            out_path = os.path.join(out_dir, f'{protein}.pickle')
-
-            if os.path.exists(out_path):
-                os.remove(out_path)
-
-        if os.path.exists(out_dir):
-            os.rmdir(out_dir)
+        out_path = os.path.join(processed_dir, f'{virus}.pickle')
+        remove(out_path)
 
     # data/tfrecord/ のファイルを削除
     for content in motif_data:
         virus = content['virus'].replace(' ', '_')
-        out_dir = os.path.join(eval_tfrecord_dir, virus)
-
-        for protein in content['proteins']:
-            out_path = os.path.join(out_dir, f'{protein}.tfrecord')
-
-            if os.path.exists(out_path):
-                os.remove(out_path)
-
-        if os.path.exists(out_dir):
-            os.rmdir(out_dir)
+        out_path = os.path.join(eval_tfrecord_dir, f'{virus}.tfrecord')
+        remove(out_path)
 
     remove(train_tfrecord_path)
     remove(test_tfrecord_path)

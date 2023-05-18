@@ -1,0 +1,34 @@
+[
+    {
+        "virus": "HIV-1",
+        "motifs": [
+            {
+                "protein": "tat",
+                "protein_subname": ["tat", "Tat", "TAT ", "TAT,"],
+                "subsequence": "RKKRRQ",
+                "start_index": 49,
+                "end_index": 54,
+                "neighbor": null,
+                "replacement_tolerance": 2
+            },
+            {
+                "protein": "tat",
+                "protein_subname": ["tat", "Tat", "TAT ", "TAT,"],
+                "subsequence": "LPTAPP",
+                "start_index": 22,
+                "end_index": 27,
+                "neighbor": null,
+                "replacement_tolerance": 2
+            },
+            {
+                "protein": "env",
+                "protein_subname": ["env"],
+                "subsequence": "KDPFKN",
+                "start_index": 26,
+                "end_index": 31,
+                "neighbor": null,
+                "replacement_tolerance": 3
+            }
+        ]
+    }
+]
