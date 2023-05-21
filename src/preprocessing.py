@@ -5,7 +5,6 @@ import json
 import pickle
 
 import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 from imblearn.under_sampling import RandomUnderSampler
 
 
@@ -57,9 +56,9 @@ def preprocess_dataset(motif_data, processed_dir,
         json.dump(dict, f)
 
     # undersampling
-    x_train, y_train = underSampling(x_train, y_train,
+    x_train, y_train = under_sampling(x_train, y_train,
                             sampling_strategy=sampling_strategy)
-    x_test, y_test = underSampling(x_test, y_test,
+    x_test, y_test = under_sampling(x_test, y_test,
                             sampling_strategy=1.0)
 
     # シャッフル
@@ -133,9 +132,8 @@ class Vocab:
             texts = texts.tolist()
 
         sequences = self.tokenizer.texts_to_sequences(texts)
-        sequences = pad_sequences(sequences, padding='post', value=0)
 
-        return sequences
+        return np.array(sequences)
 
     def decode(self, sequences, class_token=False):
         """ 整数のリストを単語のリストに変換する
@@ -186,12 +184,6 @@ def add_class_token(sequences):
     if isinstance(sequences, list):
         sequences = np.array(sequences)
 
-    sequences += 1
-
-    sequences = np.array(sequences)
-    mask = (sequences == 1)
-    sequences[mask] = 0
-
     # class_token = 0
     cls_arr = np.zeros((len(sequences), 1))     # shape=(len(sequences), 1)
     sequences = np.hstack([cls_arr, sequences]).astype('int64')
@@ -213,7 +205,7 @@ def load_dataset(filename, batch_size, length, buffer_size=1000):
 
     return dataset
 
-def underSampling(x, y, sampling_strategy=1.0, random_state=0):
+def under_sampling(x, y, sampling_strategy=1.0, random_state=0):
     """ アンダーサンプリングを行う
 
     Args:

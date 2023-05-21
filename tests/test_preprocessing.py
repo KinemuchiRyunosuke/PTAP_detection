@@ -3,9 +3,7 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from src.features.preprocessing import Vocab, add_class_token, underSampling
-
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from src.preprocessing import Vocab, under_sampling, add_class_token
 
 
 class TestVocab(unittest.TestCase):
@@ -32,7 +30,7 @@ class TestVocab(unittest.TestCase):
         decoded_texts = vocab.decode(sequences)
         self.assertEqual(decoded_texts, texts)
 
-        # class_token を付加した場合j
+        # class_token を付加した場合
         sequences = vocab.encode(texts)
         sequences = tf.keras.preprocessing.sequence.pad_sequences(
             sequences, padding='post', value=0)
@@ -50,19 +48,18 @@ class TestVocab(unittest.TestCase):
 class TestFuncs(unittest.TestCase):
     def test_add_class_token(self):
         sequences = [[23, 4, 2, 8],
-                     [1, 8],
-                     [9, 13, 4]]
-        correct_answer = np.array([[1, 24, 5, 3, 9],
-                                  [1, 2, 9, 0, 0],
-                                  [1, 10, 14, 5, 0]])
-        sequences = pad_sequences(sequences, padding='post', value=0)
+                     [1,  8, 5, 2],
+                     [9, 13, 4, 1]]
+        correct_answer = np.array([[0, 23,  4, 2, 8],
+                                   [0,  1,  8, 5, 2],
+                                   [0,  9, 13, 4, 1]])
         answer = add_class_token(sequences)
         self.assertTrue((answer == correct_answer).all())
 
     def test_under_sampling(self):
         x = np.arange(30).reshape(10, 3)
         y = (np.arange(10) >= 8).astype(int)
-        x_resampled, y_resampled = underSampling(x, y, sampling_strategy=1)
+        x_resampled, y_resampled = under_sampling(x, y, sampling_strategy=1)
 
         n_positive = (y_resampled == 1).sum()
         n_negative = (y_resampled == 0).sum()
