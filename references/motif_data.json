@@ -37,13 +37,13 @@
             {
                 "protein": "nep",
                 "protein_subname": ["NEP", "nuclear export protein"],
-                "motif_upstream_seq": "",
+                "motif_upstream_seq": "SSFQ",
                 "motif_seq": "DILLRMSKMQLE",
-                "motif_downstream_seq": "",
-                "subsequence": "DILLRMSKMQLE",
+                "motif_downstream_seq": "SSSG",
+                "subsequence": "SSFQDILLRMSKMQLESSSG",
                 "start_index": 11,
                 "end_index": 22,
-                "replacement_tolerance": 4
+                "replacement_tolerance": 7
             }
         ]
     }
