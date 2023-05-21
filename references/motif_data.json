@@ -3,66 +3,47 @@
         "virus": "HIV-1",
         "motifs": [
             {
-                "protein": "tat",
-                "protein_subname": ["tat", "Tat", "TAT ", "TAT,"],
-                "motif_upstream_seq": "SYG",
-                "motif_seq": "RKKRRQ",
-                "motif_downstream_seq": "RRR",
-                "subsequence": "SYGRKKRRQRRR",
-                "start_index": 49,
-                "end_index": 54,
-                "replacement_tolerance": 5
-            }
-        ]
-    },
-    {
-        "virus": "Human adenovirus 5",
-        "motifs": [
-            {
-                "protein": "E1A",
-                "protein_subname": ["E1a", "E1A ", "E1A,"],
-                "motif_upstream_seq": "DLS",
-                "motif_seq": "CKRPRP",
+                "protein": "rev",
+                "protein_subname": ["rev", "Rev", "REV"],
+                "motif_upstream_seq": "",
+                "motif_seq": "QLPPLERLTLDCSE",
                 "motif_downstream_seq": "",
-                "subsequence": "DLSCKRPRP",
-                "start_index": 284,
-                "end_index": 289,
-                "neighbor": null,
-                "replacement_tolerance": 3
-            }
-        ]
-    },
-    {
-        "virus": "Simian virus 40",
-        "motifs": [
-            {
-                "protein": "LT-Ag",
-                "protein_subname":
-                ["Large T antigen", "large T antigen", "large tumor antigen",
-                 "large t antigen"],
-                "motif_upstream_seq": "TPP",
-                "motif_seq": "KKKRKV",
-                "motif_downstream_seq": "EDP",
-                "subsequence": "TPPKKKRKVEDP",
-                "start_index": 127,
-                "end_index": 132,
+                "subsequence": "QLPPLERLTLDCSE",
+                "start_index": 339,
+                "end_index": 352,
                 "replacement_tolerance": 4
             }
         ]
     },
     {
-        "virus": "Equine infectious anemia virus",
+        "virus": "HTLV-1",
         "motifs": [
             {
-                "protein": "rev",
-                "protein_subname": ["rev", "Rev", "REV"],
-                "motif_upstream_seq": "LRPGD",
-                "motif_seq": "SKRRRK",
-                "motif_downstream_seq": "HL",
-                "subsequence": "LRPGDSKRRRKHL",
-                "start_index": 158,
-                "end_index": 163,
-                "replacement_tolerance": 6
+                "protein": "rex",
+                "protein_subname": ["rex", "Rex"],
+                "motif_upstream_seq": "",
+                "motif_seq": "DALSAQLYSSLSLD",
+                "motif_downstream_seq": "",
+                "subsequence": "DALSAQLYSSLSLD",
+                "start_index": 80,
+                "end_index": 93,
+                "replacement_tolerance": 4
+            }
+        ]
+    },
+    {
+        "virus": "influenza A virus H1N1",
+        "motifs": [
+            {
+                "protein": "nep",
+                "protein_subname": ["NEP", "nuclear export protein"],
+                "motif_upstream_seq": "",
+                "motif_seq": "DILLRMSKMQLE",
+                "motif_downstream_seq": "",
+                "subsequence": "DILLRMSKMQLE",
+                "start_index": 11,
+                "end_index": 22,
+                "replacement_tolerance": 4
             }
         ]
     }
