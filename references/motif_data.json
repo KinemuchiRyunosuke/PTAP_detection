@@ -36,7 +36,10 @@
         "motifs": [
             {
                 "protein": "nep",
-                "protein_subname": ["NEP", "nuclear export protein"],
+                "protein_subname":
+                    ["NEP", "nuclear export protein", "NS2 ",
+                     "nonstructural protein 2",
+                     "non structural protein 2"],
                 "motif_upstream_seq": "SSFQ",
                 "motif_seq": "DILLRMSKMQLE",
                 "motif_downstream_seq": "SSSG",
