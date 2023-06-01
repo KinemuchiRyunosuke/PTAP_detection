@@ -170,7 +170,7 @@ class Dataset:
         if ignore_not_motif_protein:
             motif_ids = self._is_motif_protein(record.description)
         else:
-            motif_ids = []
+            motif_ids = [i + 1 for i in range(len(self.motifs))]
 
         if motif_ids == []:
             label_list = [0] * len(record.seq)
