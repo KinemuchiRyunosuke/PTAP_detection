@@ -1,35 +1,14 @@
-import os
 import numpy as np
-from Bio import SeqIO
-
-
-def make_dataset(motif_data, length, virus, fasta_dir,
-                 separate_len, rm_positive_neighbor):
-    # 対象となるウイルスのJSONデータを取得
-    data = None
-    for content in motif_data:
-        if content['virus'].replace(' ', '_') == virus:
-            data = content
-            break
-
-    fasta_path = os.path.join(fasta_dir, f'{virus}.fasta')
-    with open(fasta_path, 'r') as f:
-        records = [record for record in SeqIO.parse(f, 'fasta')]
-
-    dataset = Dataset(
-            motifs=data['motifs'],
-            length=length,
-            separate_len=separate_len,
-            rm_positive_neighbor=rm_positive_neighbor)
-
-    xs, ys = dataset.make_dataset(records)
-    return xs, ys
 
 
 class Dataset:
-    def __init__(self, motifs, length=10,
+    def __init__(self, motifs, protein_subnames, length=10,
                  remove_X=True, separate_len=None, rm_positive_neighbor=0):
         self.motifs = motifs        # dict: アノテーションするmotif配列情報
+
+        # dict: タンパク質の種別とその異名をまとめた辞書
+        self.protein_subnames = protein_subnames
+
         self.length = length        # int: 断片の長さ
 
         self.remove_X = remove_X    # bool: 未知アミノ酸Xが含まれる
@@ -43,31 +22,43 @@ class Dataset:
         self.rm_positive_neighbor = rm_positive_neighbor
 
     def make_dataset(self, records):
-        xs = []
-        ys = []
+        """ タンパク質毎にアミノ酸断片とラベルを生成
 
-        for record in records:
-            if self.remove_X:
-                if 'X' in record.seq:
+        Arg:
+            records: FASTAファイルのデータ
+
+        Return:
+            dict(protein_name: (x, y))    (x, y: ndarray)
+                タンパク質の種別ごとに整理されたアミノ酸断片xとそのラベルy
+
+        """
+        protein_list = list(self.protein_subnames.keys())
+        dataset = {protein: None for protein in protein_list}
+
+        for protein in protein_list:
+            for record in records:
+                if self._get_protein_name(record) != protein:
                     continue
 
-            if len(record.seq) < self.length:
-                continue
+                if self.remove_X:
+                    if 'X' in record.seq:
+                        continue
 
-            label_list = self._annotate(record)
+                if len(record.seq) < self.length:
+                    continue
 
-            x, y = self._n_gram_split(record.seq, label_list)
+                label_list = self._annotate(record)
 
-            if self.separate_len is not None:
-                x = self._separate(x, n=self.separate_len)
+                x, y = self._n_gram_split(record.seq, label_list)
 
-            x = np.array(x).reshape(-1, 1)
-            y = np.array(y)
-            xs.append(x)
-            ys.append(y)
+                if self.separate_len is not None:
+                    x = self._separate(x, n=self.separate_len)
 
-        xs, ys = np.vstack(xs), np.hstack(ys)
-        return xs, ys
+                x = np.array(x).reshape(-1, 1)
+                y = np.array(y)
+                dataset[protein] = (x, y)
+
+        return dataset
 
     def _n_gram_split(self, seq, label_list):
         """ アミノ酸配列を分割し，n_gramのデータセットを作成
@@ -245,7 +236,8 @@ class Dataset:
         motif_ids = []
 
         for motif_id, motif_data in enumerate(self.motifs):
-            keywords = motif_data['protein_subname']
+            protein_subnames = self.protein_subnames
+            keywords = protein_subnames[motif_data['protein']]
             for keyword in keywords:
                 if keyword in desc:
                     motif_ids.append(motif_id + 1)
@@ -277,3 +269,61 @@ class Dataset:
             separated_seqs.append(' '.join(fragments))
 
         return separated_seqs
+
+    def _get_protein_name(self, record):
+        """ recordのタンパク質種を特定する
+
+        Args:
+            record(list): FASTAファイルのデータ．
+
+        Return:
+            str: 特定したタンパク質名.
+                特定できない場合はNoneを返す
+
+        """
+        desc = record.description
+        desc = desc[(len(record.id) + 1):]  # accession_idを削除
+        desc = desc.lower()
+
+        for protein_name, subnames in self.protein_subnames.items():
+            for subname in subnames:
+                if subname.lower() in desc:
+                    return protein_name
+
+        return None
+
+
+def classify_records(records, protein_subnames):
+    """ recordをタンパク質ごとに分類する
+    Args:
+        records(list): recordのリスト
+        protein_subnames(dict): タンパク質の分類と，その異名を格納した辞書
+
+    Return:
+        dict: (タンパク質名):(recordのリスト)
+
+    """
+    classified_records = {key:[] for key in protein_subnames.keys()}
+    classified_records['others'] = []
+
+    for record in records:
+        desc = record.description
+        desc = desc[(len(record.id) + 1):]  # accession_idを削除
+        desc = desc.lower()
+
+        for protein_name, subnames in protein_subnames.items():
+            finish = False
+
+            for subname in subnames:
+                if subname.lower() in desc:
+                    classified_records[protein_name].append(record)
+                    finish = True
+                    break
+
+            if finish:
+                break
+
+        if not finish:
+            classified_records['others'].append(record)
+
+    return classified_records

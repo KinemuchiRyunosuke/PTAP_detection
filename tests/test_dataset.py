@@ -1,10 +1,9 @@
-import os
 import numpy as np
 import unittest
 import json
 from Bio import SeqIO
 
-from src.dataset import Dataset
+from src.dataset import Dataset, classify_records
 
 
 class TestDataset(unittest.TestCase):
@@ -18,6 +17,7 @@ class TestDataset(unittest.TestCase):
         motif_data = motif_data[0]
 
         self.dataset = Dataset(motif_data['motifs'],
+                               protein_subnames=motif_data['protein_subnames'],
                                length=length)
 
     def test_n_gram_split(self):
@@ -61,6 +61,7 @@ class TestDataset2(unittest.TestCase):
 
         self.dataset = Dataset(
                 motifs=data['motifs'],
+                protein_subnames=data['protein_subnames'],
                 length=length,
                 separate_len=separate_len)
 
@@ -121,6 +122,7 @@ class TestDataset3(unittest.TestCase):
 
         self.dataset = Dataset(
                 motifs=data['motifs'],
+                protein_subnames=data['protein_subnames'],
                 length=length,
                 separate_len=separate_len)
 
@@ -164,7 +166,7 @@ class TestDataset3(unittest.TestCase):
         self.assertTrue((xs == correct_xs).all())
         self.assertTrue((ys == correct_ys).all())
 
-class TestDataset4(unittest.TestCase):
+class Testdataset4(unittest.TestCase):
     def setUp(self):
         self.length = 4
 
@@ -177,7 +179,7 @@ class TestDataset4(unittest.TestCase):
         with open(motif_data_path, 'r') as f:
             motif_data = json.load(f)
 
-        # 対象となるウイルスのJSONデータを取得
+        # 対象となるウイルスのjsonデータを取得
         data = None
         for content in motif_data:
             if content['virus'].replace(' ', '_') == virus:
@@ -189,6 +191,7 @@ class TestDataset4(unittest.TestCase):
 
         self.dataset = Dataset(
                 motifs=data['motifs'],
+                protein_subnames=data['protein_subnames'],
                 length=self.length,
                 separate_len=separate_len,
                 rm_positive_neighbor=rm_positive_neighbor)
@@ -210,3 +213,26 @@ class TestDataset4(unittest.TestCase):
         x, y = self.dataset._rm_positive_neighbor(x, y)
         self.assertEqual(x, correct_x)
         self.assertEqual(y, correct_y)
+
+class TestClassifyRecords(unittest.TestCase):
+    def setUp(self):
+        motif_data_path = "tests/test_motif_data.json"
+        with open(motif_data_path, 'r') as f:
+            motif_data = json.load(f)
+        self.protein_subnames = motif_data[0]['protein_subnames']
+
+        fasta_path= 'tests/test_fasta.fasta'
+        with open(fasta_path, 'r') as f:
+            self.records = [record for record in SeqIO.parse(f, 'fasta')]
+
+    def test_classify_records(self):
+        records_dict = classify_records(self.records, self.protein_subnames)
+
+        keys = ['tat', 'env', 'rev']
+        for key, records in records_dict.items():
+            if key in keys:
+                self.assertEqual(len(records), 1)
+            else:
+                self.assertEqual(len(records), 0)
+
+

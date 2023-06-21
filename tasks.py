@@ -1,5 +1,4 @@
 import os
-import json
 import shutil
 import invoke
 
@@ -11,29 +10,18 @@ test_tfrecord_path = "data/tfrecord/test_dataset.tfrecord"
 vocab_path = "references/vocab.pickle"
 n_pos_neg_path = "references/n_positive_negative.json"
 model_dir = "models/"
-evaluation_path = "reports/result/evaluation.csv"
-false_positive_path = "reports/result/false_positive.csv"
-positive_pred_path = "reports/result/positive_pred.csv"
+reports_dir = 'reports/'
 
 
 @invoke.task
 def clear(c):
     """生成されたデータを削除"""
-    with open(motif_data_path, 'r') as f:
-        motif_data = json.load(f)
 
     # data/processed/ のファイルを削除
-    for content in motif_data:
-        virus = content['virus'].replace(' ', '_')
-        out_path = os.path.join(processed_dir, f'{virus}.pickle')
-        remove(out_path)
+    rmdir(processed_dir, git_keep=True)
 
     # data/tfrecord/ のファイルを削除
-    for content in motif_data:
-        virus = content['virus'].replace(' ', '_')
-        out_path = os.path.join(eval_tfrecord_dir, f'{virus}.tfrecord')
-        remove(out_path)
-
+    rmdir(eval_tfrecord_dir, git_keep=True)
     remove(train_tfrecord_path)
     remove(test_tfrecord_path)
 
@@ -42,16 +30,19 @@ def clear(c):
     remove(n_pos_neg_path)
 
     # models/ のファイルを削除
-    if os.path.exists(model_dir):
-        shutil.rmtree(model_dir)
-        os.makedirs(model_dir)
-        invoke.run('touch {}/.gitkeep'.format(model_dir))
+    rmdir(model_dir, git_keep=True)
 
     # reports/ のファイルを削除
-    remove(evaluation_path)
-    remove(false_positive_path)
-    remove(positive_pred_path)
+    rmdir(reports_dir, git_keep=True)
 
 def remove(path):
     if os.path.exists(path):
         os.remove(path)
+
+def rmdir(dir_path, git_keep=True):
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
+        os.makedirs(dir_path)
+
+        if git_keep:
+            invoke.run('touch {}/.gitkeep'.format(dir_path))
