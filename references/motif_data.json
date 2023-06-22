@@ -1,81 +1,182 @@
-[
-    {
-        "virus": "HIV-1",
-        "protein_subnames": {
-            "gag-pol": ["gag-pol"],
-            "gag": ["gag"],
-            "env": ["env", "gp120", "gp41", "gp160",
-                    "envelope glycoprotein"],
-            "pol": ["pol protein", "pol polyprotein", "polymerase"],
-            "vif": ["vif", "viral infectivity factor"],
-            "vpr": ["vpr"],
-            "tat": ["tat"],
-            "rev": ["rev"],
-            "vpu": ["vpu"],
-            "nef": ["nef"]
+{
+    "PTAP": [
+        {
+            "virus": "Zaire ebolavirus",
+            "protein_subnames": {
+                "VP24": ["VP24", "viral protein 24"],
+                "VP30": ["VP30", "viral protein 30"],
+                "VP35": ["VP35", "viral protein 35"],
+                "VP40": ["VP40", "viral protein 40"],
+                "NP": ["NP", "nucleoprotein"],
+                "GP": ["GP", "glycoprotein"],
+                "L": ["Gene Symbol:L", "polymerase"]
+            },
+            "motifs": [
+                {
+                    "protein": "VP40",
+                    "motif_upstream_seq": "MRRVI",
+                    "motif_seq": "LPTAPP",
+                    "motif_downstream_seq": "EYMEA",
+                    "subsequence": "MRRVILPTAPPEYMEA",
+                    "start_index": 6,
+                    "end_index": 11,
+                    "replacement_tolerance": 4
+                }
+            ]
         },
-        "motifs": [
-            {
-                "protein": "tat",
-                "motif_upstream_seq": "SYG",
-                "motif_seq": "RKKRRQ",
-                "motif_downstream_seq": "RRR",
-                "subsequence": "SYGRKKRRQRRR",
-                "start_index": 49,
-                "end_index": 54,
-                "replacement_tolerance": 5
-            }
-        ]
-    },
-    {
-        "virus": "Simian virus 40",
-        "protein_subnames": {
-            "VP1": ["vp1", "viral coat protein 1", "late coat protein 1"],
-            "VP2": ["vp2", "viral coat protein 2", "late coat protein 2"],
-            "VP3": ["vp3", "viral coat protein 3", "late coat protein 3"],
-            "LT-Ag": ["lt-ag", "large tumor antigen", "large t antigen",
-                      "large t", "large/small tumor antigen"],
-            "ST-Ag": ["st-ag", "small t antigen", "small tumor antigen"],
-            "AGNO": ["agnoprotein"]
+        {
+            "virus": "Lassa mammarenavirus",
+            "protein_subnames": {
+                    "NP": ["NP", "nucleoprotein"],
+                    "GPC": ["GPC", "glycoprotein"],
+                    "Z": ["Gene Symbol:Z", "Protein Name:Z"],
+                    "L": ["Gene Symbol:L", "Protein Name:L", "polymerase"]
+                    },
+            "motifs":[
+                {
+                    "protein": "Z",
+                    "motif_upstream_seq": "TKLRPSA",
+                    "motif_seq": "APTAPP",
+                    "motif_downstream_seq": "",
+                    "subsequence": "TKLRPSAAPTAPP",
+                    "start_index": 80,
+                    "end_index": 85,
+                    "replacement_tolerance": 8
+                }
+            ]
         },
-        "motifs": [
-            {
-                "protein": "LT-Ag",
-                "motif_upstream_seq": "TPP",
-                "motif_seq": "KKKRKV",
-                "motif_downstream_seq": "EDP",
-                "subsequence": "TPPKKKRKVEDP",
-                "start_index": 127,
-                "end_index": 132,
-                "replacement_tolerance": 4
-            }
-        ]
-    },
-    {
-        "virus": "Equine infectious anemia virus",
-        "protein_subnames": {
-            "S2": ["S2"],
-            "env": ["env", "gp90", "surface protein", "SU",
-                    "gp45", "transmembrane protein", "TM"],
-            "gag": ["gag", "p15", "p26", "p1", "p11", "p9"],
-            "pol": ["pol ", "pol,", "pol protein", "pol polyprotein",
-                    "integrase", "polymerase", "reverse transcriptase"],
-            "rev": ["rev", "S3"],
-            "tat": ["tat", "S1", "trans-activator protein",
-                    "trans-activating factor", "transactivator protein",
-                    "trans-activating protein", "transactivator"]
+        {
+            "virus": "Bluetongue virus",
+            "protein_subnames": {
+                "NS1": ["NS1"],
+                "NS2": ["NS2"],
+                "NS3": ["NS3"],
+                "VP1": ["VP1", "viral protein 1"],
+                "VP2": ["VP2", "viral protein 2"],
+                "VP3": ["VP3", "viral protein 3"],
+                "VP4": ["VP4", "viral protein 4"],
+                "VP5": ["VP5", "viral protein 5"],
+                "VP6": ["VP6", "viral protein 6"],
+                "VP7": ["VP7", "viral protein 7"]
+            },
+            "motifs": [
+                {
+                    "protein": "NS3",
+                    "motif_upstream_seq": "QPPRY",
+                    "motif_seq": "APSAPM",
+                    "motif_downstream_seq": "PSSMP",
+                    "subsequence": "QPPRYAPSAPMPSSMP",
+                    "start_index": 40,
+                    "end_index": 45,
+                    "replacement_tolerance": 5
+                }
+            ]
         },
-        "motifs": [
-            {
-                "protein": "rev",
-                "motif_upstream_seq": "LRPGD",
-                "motif_seq": "SKRRRK",
-                "motif_downstream_seq": "HL",
-                "subsequence": "LRPGDSKRRRKHL",
-                "start_index": 158,
-                "end_index": 163,
-                "replacement_tolerance": 6
-            }
-        ]
-    }
-]
+        {
+            "virus": "Marburg virus",
+            "protein_subnames": {
+                "VP24": ["VP24", "vp24", "viral protein 24"],
+                "VP30": ["VP30", "vp30", "viral protein 30"],
+                "VP35": ["VP35", "vp35", "viral protein 35"],
+                "VP40": ["VP40", "vp40", "viral protein 40"],
+                "NP": ["NP", "nucleoprotein"],
+                "L": ["Gene Symbol:L", "Protein Name:L", "polymerase"],
+                "GP": ["GP", "glycoprotein"]
+            },
+            "motifs": [
+                {
+                    "protein": "NP",
+                    "motif_upstream_seq": "IRSPS",
+                    "motif_seq": "SPSAPQ",
+                    "motif_downstream_seq": "EDTRM",
+                    "subsequence": "IRSPSSPSAPQEDTRM",
+                    "start_index": 602,
+                    "end_index": 607,
+                    "replacement_tolerance": 4
+                }
+            ]
+        }
+    ],
+
+    "NLS": [
+        {
+            "virus": "HIV-1",
+            "protein_subnames": {
+                "gag-pol": ["gag-pol"],
+                "gag": ["gag"],
+                "env": ["env", "gp120", "gp41", "gp160",
+                        "envelope glycoprotein"],
+                "pol": ["pol protein", "pol polyprotein", "polymerase"],
+                "vif": ["vif", "viral infectivity factor"],
+                "vpr": ["vpr"],
+                "tat": ["tat"],
+                "rev": ["rev"],
+                "vpu": ["vpu"],
+                "nef": ["nef"]
+            },
+            "motifs": [
+                {
+                    "protein": "tat",
+                    "motif_upstream_seq": "SYG",
+                    "motif_seq": "RKKRRQ",
+                    "motif_downstream_seq": "RRR",
+                    "subsequence": "SYGRKKRRQRRR",
+                    "start_index": 49,
+                    "end_index": 54,
+                    "replacement_tolerance": 5
+                }
+            ]
+        },
+        {
+            "virus": "Simian virus 40",
+            "protein_subnames": {
+                "VP1": ["vp1", "viral coat protein 1", "late coat protein 1"],
+                "VP2": ["vp2", "viral coat protein 2", "late coat protein 2"],
+                "VP3": ["vp3", "viral coat protein 3", "late coat protein 3"],
+                "LT-Ag": ["lt-ag", "large tumor antigen", "large t antigen",
+                          "large t", "large/small tumor antigen"],
+                "ST-Ag": ["st-ag", "small t antigen", "small tumor antigen"],
+                "AGNO": ["agnoprotein"]
+            },
+            "motifs": [
+                {
+                    "protein": "LT-Ag",
+                    "motif_upstream_seq": "TPP",
+                    "motif_seq": "KKKRKV",
+                    "motif_downstream_seq": "EDP",
+                    "subsequence": "TPPKKKRKVEDP",
+                    "start_index": 127,
+                    "end_index": 132,
+                    "replacement_tolerance": 4
+                }
+            ]
+        },
+        {
+            "virus": "Equine infectious anemia virus",
+            "protein_subnames": {
+                "S2": ["S2"],
+                "env": ["env", "gp90", "surface protein", "SU",
+                        "gp45", "transmembrane protein", "TM"],
+                "gag": ["gag", "p15", "p26", "p1", "p11", "p9"],
+                "pol": ["pol ", "pol,", "pol protein", "pol polyprotein",
+                        "integrase", "polymerase", "reverse transcriptase"],
+                "rev": ["rev", "S3"],
+                "tat": ["tat", "S1", "trans-activator protein",
+                        "trans-activating factor", "transactivator protein",
+                        "trans-activating protein", "transactivator"]
+            },
+            "motifs": [
+                {
+                    "protein": "rev",
+                    "motif_upstream_seq": "LRPGD",
+                    "motif_seq": "SKRRRK",
+                    "motif_downstream_seq": "HL",
+                    "subsequence": "LRPGDSKRRRKHL",
+                    "start_index": 158,
+                    "end_index": 163,
+                    "replacement_tolerance": 6
+                }
+            ]
+        }
+    ]
+}

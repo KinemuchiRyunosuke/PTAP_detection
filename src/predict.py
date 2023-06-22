@@ -16,6 +16,9 @@ from preprocessing import add_class_token, under_sampling, shuffle, \
 from models.transformer import BinaryClassificationTransformer
 
 
+# 解析を行うモチーフ
+target_motif = "PTAP"
+
 test_mode = True
 
 # parameters
@@ -69,6 +72,7 @@ def main():
 
     with open(motif_data_path, 'r') as f:
         motif_data = json.load(f)
+        motif_data = motif_data[target_motif]
 
     if not finish_making_dataset(motif_data):
         print("================== MAKING DATASET ==================")
