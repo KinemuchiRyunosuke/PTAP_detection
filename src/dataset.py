@@ -36,6 +36,8 @@ class Dataset:
         dataset = {protein: None for protein in protein_list}
 
         for protein in protein_list:
+
+            xs, ys = [], []
             for record in records:
                 if self._get_protein_name(record) != protein:
                     continue
@@ -54,9 +56,10 @@ class Dataset:
                 if self.separate_len is not None:
                     x = self._separate(x, n=self.separate_len)
 
-                x = np.array(x).reshape(-1, 1)
-                y = np.array(y)
-                dataset[protein] = (x, y)
+                xs += x
+                ys += y
+
+            dataset[protein] = (xs, ys)
 
         return dataset
 
