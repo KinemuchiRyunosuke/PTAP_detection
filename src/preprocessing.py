@@ -47,7 +47,7 @@ class Vocab:
 
         return np.array(sequences, dtype=np.int64)
 
-    def decode(self, sequences, class_token=False):
+    def decode(self, sequences, class_token=True):
         """ 整数のリストを単語のリストに変換する
 
         Arg:

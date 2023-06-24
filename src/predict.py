@@ -371,7 +371,9 @@ def evaluate(model, vocab):
 
             # アミノ酸配列を断片化
             for i in range(len(record.seq) - length + 1):
-                seqs.append(str(record.seq[i:(i+length)]))
+                seq = str(record.seq[i:(i+length)])
+                seq = ' '.join(list(seq))
+                seqs.append(seq)
 
             x = vocab.encode(seqs)
             x = add_class_token(x)
@@ -385,7 +387,7 @@ def evaluate(model, vocab):
             df = pd.DataFrame({
                 'species': [species] * len(x),
                 'description': [record.description] * len(x),
-                'seq': vocab.decode(x)
+                'seq': vocab.decode(x, class_token=True)
                 })
 
             df_pos_pred = pd.concat((df_pos_pred, df))
