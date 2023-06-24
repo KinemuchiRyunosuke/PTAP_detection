@@ -1,13 +1,12 @@
 import os
 import json
 import pickle
-import csv
 import math
+import glob
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 
-from sklearn.metrics import confusion_matrix
 from Bio import SeqIO
 
 from dataset import Dataset
@@ -16,8 +15,7 @@ from preprocessing import add_class_token, under_sampling, shuffle, \
 from models.transformer import BinaryClassificationTransformer
 
 
-# 解析を行うモチーフ
-target_motif = "PTAP"
+target_motif = "PTAP"   # 解析を行うモチーフ
 
 test_mode = True
 
@@ -25,10 +23,9 @@ test_mode = True
 length = 26
 n_gram = True
 val_rate = 0.2
-eval_rate = 0.2
 num_amino_acid = 23
 separate_len = 1
-rm_positive_neighbor = 3
+rm_positive_neighbor = 10
 num_words = num_amino_acid ** separate_len
 num_tokens = 2
 batch_size = 1024
@@ -136,10 +133,7 @@ def main():
 
     print("================== EVALUATION ======================")
     model.load_weights(os.path.dirname(checkpoint_path))
-    evaluate(motif_data=motif_data,
-             model=model,
-             seq_length=length - separate_len + 2,
-             vocab=vocab)
+    evaluate(model=model, vocab=vocab)
 
 def make_dataset(motif_data, virus):
     # 対象となるウイルスのJSONデータを取得
@@ -152,6 +146,9 @@ def make_dataset(motif_data, virus):
     fasta_path = os.path.join(fasta_dir, f'{virus}.fasta')
     with open(fasta_path, 'r') as f:
         records = [record for record in SeqIO.parse(f, 'fasta')]
+
+    if test_mode:
+        records = records[:10]
 
     dataset = Dataset(
             motifs=data['motifs'],
@@ -225,19 +222,6 @@ def preprocess_dataset(motif_data, vocab):
 
             shuffle(x, y, seed)
 
-            # 評価用データセットとしてunder-samplingしていないデータを残しておく
-            n_eval_ds = math.floor(len(x) * eval_rate)
-            x_eval, y_eval = x[:n_eval_ds], y[:n_eval_ds]
-            x, y = x[n_eval_ds:], y[n_eval_ds:]
-
-            x_eval = vocab.encode(x_eval)
-            x_eval = add_class_token(x_eval)
-
-            eval_tfrecord_path = os.path.join(os.path.join(
-                    eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
-            os.makedirs(os.path.dirname(eval_tfrecord_path), exist_ok=True)
-            write_tfrecord(x_eval, y_eval, eval_tfrecord_path)
-
             # データセットを学習用と検証用に分割
             n_val_ds = math.floor(len(x) * val_rate)
 
@@ -270,7 +254,7 @@ def preprocess_dataset(motif_data, vocab):
     X_train, y_train = under_sampling(X_train, y_train,
                             sampling_strategy=sampling_strategy)
     X_test, y_test = under_sampling(X_test, y_test,
-                            sampling_strategy=1.0)
+                            sampling_strategy=sampling_strategy)
 
     # 学習データセットの数を集計
     count_dataset(X_train, y_train, motif_data)
@@ -368,60 +352,45 @@ def train(model, seq_length):
             class_weight=class_weight,
             verbose=1)
 
-def evaluate(motif_data, model, seq_length, vocab):
-    if os.path.exists(false_positive_path):
-        os.remove(false_positive_path)
+def evaluate(model, vocab):
+    df_pos_pred = pd.DataFrame(columns=['species', 'description', 'seq'])
 
-    if os.path.exists(positive_pred_path):
-        os.remove(positive_pred_path)
+    target_species = glob.glob('data/eval/*.fasta')
+    target_species = [os.path.basename(species).replace('.fasta', '') \
+                      for species in target_species]
 
-    df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
-    df.astype({'tn':'int', 'fp':'int', 'fn':'int', 'tp':'int'})
+    for species in target_species:
+        fasta_path = f'data/eval/{species}.fasta'
+        with open(fasta_path, 'r') as f:
+            records = [record for record in SeqIO.parse(f, 'fasta') \
+                        if (len(record.seq) >= length) \
+                            & (not 'X' in record.seq)]
 
-    for content in motif_data:
-        virusname = content['virus'].replace(' ', '_')
+        for record in records:
+            seqs = []
 
-        for protein in content['protein_subnames'].keys():
-            eval_ds_path = os.path.join(os.path.join(
-                    eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
+            # アミノ酸配列を断片化
+            for i in range(len(record.seq) - length + 1):
+                seqs.append(str(record.seq[i:(i+length)]))
 
-            eval_ds = load_dataset(eval_ds_path,
-                                   batch_size=batch_size,
-                                   length=seq_length)
+            x = vocab.encode(seqs)
+            x = add_class_token(x)
 
-            cm = np.zeros((2, 2), dtype=np.int64)
-            for x, y_true in eval_ds:   # 評価用データセットをbatchごとに取り出す
-                y_pred = model.predict_on_batch(x)
-                y_pred = np.squeeze(y_pred)
-                y_pred = (y_pred > threshold).astype(int)
-                y_true = np.squeeze(y_true)
-                cm += confusion_matrix(y_true, y_pred, labels=[0, 1])
+            y_pred = model.predict_on_batch(x)
+            y_pred = np.squeeze(y_pred)
+            y_pred = (y_pred > threshold).astype(int)
 
-                # 偽陽性データを保存
-                x_fp = x[(y_true == 0) & (y_pred == 1)]
-                x_fp = vocab.decode(x_fp, class_token=True)
+            x = x[y_pred == 1]
 
-                for seq in x_fp:
-                    with open(false_positive_path, 'a') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([virusname, seq])
+            df = pd.DataFrame({
+                'species': [species] * len(x),
+                'description': [record.description] * len(x),
+                'seq': vocab.decode(x)
+                })
 
-                # 陽性と判定されたデータを保存
-                x_pos_pred = x[(y_pred == 1)]
-                x_pos_pred = vocab.decode(x_pos_pred, class_token=True)
+            df_pos_pred = pd.concat((df_pos_pred, df))
 
-                for seq in x_pos_pred:
-                    with open(positive_pred_path, 'a') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([virusname, seq])
-
-            # 評価結果をDataFrameに保存
-            row = pd.Series([virusname, protein,
-                                cm[0,0], cm[0,1], cm[1,0], cm[1,1]],
-                            index=df.columns)
-            df = pd.concat([df, pd.DataFrame(row).T])
-
-        df.to_csv(result_path, index=False)
+    df_pos_pred.to_csv(result_path, index=False)
 
 
 if __name__ == '__main__':
