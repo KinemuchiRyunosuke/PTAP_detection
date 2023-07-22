@@ -40,7 +40,6 @@ class TestDataset(unittest.TestCase):
 
 class TestDataset2(unittest.TestCase):
     def setUp(self):
-        virus = 'HIV-1'
         length = 10
         separate_len = 1
         fasta_path= 'tests/test_fasta.fasta'
@@ -48,20 +47,14 @@ class TestDataset2(unittest.TestCase):
         motif_data_path = "tests/test_motif_data.json"
         with open(motif_data_path, 'r') as f:
             motif_data = json.load(f)
-
-        # 対象となるウイルスのJSONデータを取得
-        data = None
-        for content in motif_data:
-            if content['virus'].replace(' ', '_') == virus:
-                data = content
-                break
+            motif_data = motif_data[0]
 
         with open(fasta_path, 'r') as f:
             self.records = [record for record in SeqIO.parse(f, 'fasta')]
 
         self.dataset = Dataset(
-                motifs=data['motifs'],
-                protein_subnames=data['protein_subnames'],
+                motifs=motif_data['motifs'],
+                protein_subnames=motif_data['protein_subnames'],
                 length=length,
                 separate_len=separate_len)
 
@@ -74,34 +67,36 @@ class TestDataset2(unittest.TestCase):
         self.assertEqual(label_lists, correct_label_lists)
 
     def test_make_dataset(self):
-        correct_xs = np.array( \
-            [['N N P Q Q Q A R N N'], ['N P Q Q Q A R N N A'], ['P Q Q Q A R N N A B'],
-             ['Q Q Q A R N N A B C'], ['Q Q A R N N A B C C'], ['Q A R N N A B C C C'],
-             ['A R N N A B C C C N'], ['R N N A B C C C N N'], ['N N A B C C C N N F'],
-             ['N A B C C C N N F G'], ['A B C C C N N F G H'], ['B C C C N N F G H I'],
-             ['C C C N N F G H I J'], ['C C N N F G H I J K'], ['N N P Q Q Q A R N N'],
-             ['N P Q Q Q A R N N A'], ['P Q Q Q A R N N A B'], ['Q Q Q A R N N A B C'],
-             ['Q Q A R N N A B C C'], ['Q A R N N A B C C C'], ['A R N N A B C C C N'],
-             ['R N N A B C C C N N'], ['N N A B C C C N N F'], ['N A B C C C N N F G'],
-             ['A B C C C N N F G H'], ['B C C C N N F G H I'], ['C C C N N F G H I J'],
-             ['C C N N F G H I J K'], ['N N P Q Q Q A R N N'], ['N P Q Q Q A R N N A'],
-             ['P Q Q Q A R N N A B'], ['Q Q Q A R N N A B C'], ['Q Q A R N N A B C C'],
-             ['Q A R N N A B C C C'], ['A R N N A B C C C N'], ['R N N A B C C C N N'],
-             ['N N A B C C C N N F'], ['N A B C C C N N F G'], ['A B C C C N N F G H'],
-             ['B C C C N N F G H I'], ['C C C N N F G H I J'], ['C C N N F G H I J K']])
+        correct_dataset = {
+            'env': (
+                ['N N P Q Q Q A R N N', 'N P Q Q Q A R N N A', 'P Q Q Q A R N N A B',
+                 'Q Q Q A R N N A B C', 'Q Q A R N N A B C C', 'Q A R N N A B C C C',
+                 'A R N N A B C C C N', 'R N N A B C C C N N', 'N N A B C C C N N F',
+                 'N A B C C C N N F G', 'A B C C C N N F G H', 'B C C C N N F G H I',
+                 'C C C N N F G H I J', 'C C N N F G H I J K'],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            'tat': (
+                ['N N P Q Q Q A R N N', 'N P Q Q Q A R N N A', 'P Q Q Q A R N N A B',
+                 'Q Q Q A R N N A B C', 'Q Q A R N N A B C C', 'Q A R N N A B C C C',
+                 'A R N N A B C C C N', 'R N N A B C C C N N', 'N N A B C C C N N F',
+                 'N A B C C C N N F G', 'A B C C C N N F G H', 'B C C C N N F G H I',
+                 'C C C N N F G H I J', 'C C N N F G H I J K'],
+                [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            'rev': (
+                ['N N P Q Q Q A R N N', 'N P Q Q Q A R N N A', 'P Q Q Q A R N N A B',
+                 'Q Q Q A R N N A B C', 'Q Q A R N N A B C C', 'Q A R N N A B C C C',
+                 'A R N N A B C C C N', 'R N N A B C C C N N', 'N N A B C C C N N F',
+                 'N A B C C C N N F G', 'A B C C C N N F G H', 'B C C C N N F G H I',
+                 'C C C N N F G H I J', 'C C N N F G H I J K'],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
 
-        correct_ys = np.array( \
-            [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-
-        xs, ys = self.dataset.make_dataset(self.records)
-        self.assertTrue((xs == correct_xs).all())
-        self.assertTrue((ys == correct_ys).all())
+        dataset = self.dataset.make_dataset(self.records)
+        self.assertTrue(dataset == correct_dataset)
 
 
 class TestDataset3(unittest.TestCase):
     def setUp(self):
-        virus = 'HIV-1'
         length = 10
         separate_len = 2
         fasta_path= 'tests/test_fasta.fasta'
@@ -109,20 +104,14 @@ class TestDataset3(unittest.TestCase):
         motif_data_path = "tests/test_motif_data.json"
         with open(motif_data_path, 'r') as f:
             motif_data = json.load(f)
-
-        # 対象となるウイルスのJSONデータを取得
-        data = None
-        for content in motif_data:
-            if content['virus'].replace(' ', '_') == virus:
-                data = content
-                break
+            motif_data = motif_data[0]
 
         with open(fasta_path, 'r') as f:
             self.records = [record for record in SeqIO.parse(f, 'fasta')]
 
         self.dataset = Dataset(
-                motifs=data['motifs'],
-                protein_subnames=data['protein_subnames'],
+                motifs=motif_data['motifs'],
+                protein_subnames=motif_data['protein_subnames'],
                 length=length,
                 separate_len=separate_len)
 
@@ -135,42 +124,44 @@ class TestDataset3(unittest.TestCase):
         self.assertEqual(label_lists, correct_label_lists)
 
     def test_make_dataset(self):
-        correct_xs = np.array( \
-            [['NN NP PQ QQ QQ QA AR RN NN'], ['NP PQ QQ QQ QA AR RN NN NA'],
-             ['PQ QQ QQ QA AR RN NN NA AB'], ['QQ QQ QA AR RN NN NA AB BC'],
-             ['QQ QA AR RN NN NA AB BC CC'], ['QA AR RN NN NA AB BC CC CC'],
-             ['AR RN NN NA AB BC CC CC CN'], ['RN NN NA AB BC CC CC CN NN'],
-             ['NN NA AB BC CC CC CN NN NF'], ['NA AB BC CC CC CN NN NF FG'],
-             ['AB BC CC CC CN NN NF FG GH'], ['BC CC CC CN NN NF FG GH HI'],
-             ['CC CC CN NN NF FG GH HI IJ'], ['CC CN NN NF FG GH HI IJ JK'],
-             ['NN NP PQ QQ QQ QA AR RN NN'], ['NP PQ QQ QQ QA AR RN NN NA'],
-             ['PQ QQ QQ QA AR RN NN NA AB'], ['QQ QQ QA AR RN NN NA AB BC'],
-             ['QQ QA AR RN NN NA AB BC CC'], ['QA AR RN NN NA AB BC CC CC'],
-             ['AR RN NN NA AB BC CC CC CN'], ['RN NN NA AB BC CC CC CN NN'],
-             ['NN NA AB BC CC CC CN NN NF'], ['NA AB BC CC CC CN NN NF FG'],
-             ['AB BC CC CC CN NN NF FG GH'], ['BC CC CC CN NN NF FG GH HI'],
-             ['CC CC CN NN NF FG GH HI IJ'], ['CC CN NN NF FG GH HI IJ JK'],
-             ['NN NP PQ QQ QQ QA AR RN NN'], ['NP PQ QQ QQ QA AR RN NN NA'],
-             ['PQ QQ QQ QA AR RN NN NA AB'], ['QQ QQ QA AR RN NN NA AB BC'],
-             ['QQ QA AR RN NN NA AB BC CC'], ['QA AR RN NN NA AB BC CC CC'],
-             ['AR RN NN NA AB BC CC CC CN'], ['RN NN NA AB BC CC CC CN NN'],
-             ['NN NA AB BC CC CC CN NN NF'], ['NA AB BC CC CC CN NN NF FG'],
-             ['AB BC CC CC CN NN NF FG GH'], ['BC CC CC CN NN NF FG GH HI'],
-             ['CC CC CN NN NF FG GH HI IJ'], ['CC CN NN NF FG GH HI IJ JK']])
+        correct_dataset = {
+            'env': (
+                ['NN NP PQ QQ QQ QA AR RN NN', 'NP PQ QQ QQ QA AR RN NN NA',
+                 'PQ QQ QQ QA AR RN NN NA AB', 'QQ QQ QA AR RN NN NA AB BC',
+                 'QQ QA AR RN NN NA AB BC CC', 'QA AR RN NN NA AB BC CC CC',
+                 'AR RN NN NA AB BC CC CC CN', 'RN NN NA AB BC CC CC CN NN',
+                 'NN NA AB BC CC CC CN NN NF', 'NA AB BC CC CC CN NN NF FG',
+                 'AB BC CC CC CN NN NF FG GH', 'BC CC CC CN NN NF FG GH HI',
+                 'CC CC CN NN NF FG GH HI IJ', 'CC CN NN NF FG GH HI IJ JK'],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            'tat': (
+                ['NN NP PQ QQ QQ QA AR RN NN', 'NP PQ QQ QQ QA AR RN NN NA',
+                 'PQ QQ QQ QA AR RN NN NA AB', 'QQ QQ QA AR RN NN NA AB BC',
+                 'QQ QA AR RN NN NA AB BC CC', 'QA AR RN NN NA AB BC CC CC',
+                 'AR RN NN NA AB BC CC CC CN', 'RN NN NA AB BC CC CC CN NN',
+                 'NN NA AB BC CC CC CN NN NF', 'NA AB BC CC CC CN NN NF FG',
+                 'AB BC CC CC CN NN NF FG GH', 'BC CC CC CN NN NF FG GH HI',
+                 'CC CC CN NN NF FG GH HI IJ', 'CC CN NN NF FG GH HI IJ JK'],
+                [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+            'rev': (
+                ['NN NP PQ QQ QQ QA AR RN NN', 'NP PQ QQ QQ QA AR RN NN NA',
+                 'PQ QQ QQ QA AR RN NN NA AB', 'QQ QQ QA AR RN NN NA AB BC',
+                 'QQ QA AR RN NN NA AB BC CC', 'QA AR RN NN NA AB BC CC CC',
+                 'AR RN NN NA AB BC CC CC CN', 'RN NN NA AB BC CC CC CN NN',
+                 'NN NA AB BC CC CC CN NN NF', 'NA AB BC CC CC CN NN NF FG',
+                 'AB BC CC CC CN NN NF FG GH', 'BC CC CC CN NN NF FG GH HI',
+                 'CC CC CN NN NF FG GH HI IJ', 'CC CN NN NF FG GH HI IJ JK'],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
 
-        correct_ys = np.array( \
-            [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        dataset = self.dataset.make_dataset(self.records)
+        self.assertTrue(dataset == correct_dataset)
 
-        xs, ys = self.dataset.make_dataset(self.records)
-        self.assertTrue((xs == correct_xs).all())
-        self.assertTrue((ys == correct_ys).all())
 
 class Testdataset4(unittest.TestCase):
     def setUp(self):
         self.length = 4
 
-        virus = 'HIV-1'
         separate_len = 1
         fasta_path= 'tests/test_fasta.fasta'
         rm_positive_neighbor = 2
@@ -178,20 +169,14 @@ class Testdataset4(unittest.TestCase):
         motif_data_path = "tests/test_motif_data.json"
         with open(motif_data_path, 'r') as f:
             motif_data = json.load(f)
-
-        # 対象となるウイルスのjsonデータを取得
-        data = None
-        for content in motif_data:
-            if content['virus'].replace(' ', '_') == virus:
-                data = content
-                break
+            motif_data = motif_data[0]
 
         with open(fasta_path, 'r') as f:
             self.records = [record for record in SeqIO.parse(f, 'fasta')]
 
         self.dataset = Dataset(
-                motifs=data['motifs'],
-                protein_subnames=data['protein_subnames'],
+                motifs=motif_data['motifs'],
+                protein_subnames=motif_data['protein_subnames'],
                 length=self.length,
                 separate_len=separate_len,
                 rm_positive_neighbor=rm_positive_neighbor)
@@ -213,6 +198,7 @@ class Testdataset4(unittest.TestCase):
         x, y = self.dataset._rm_positive_neighbor(x, y)
         self.assertEqual(x, correct_x)
         self.assertEqual(y, correct_y)
+
 
 class TestClassifyRecords(unittest.TestCase):
     def setUp(self):

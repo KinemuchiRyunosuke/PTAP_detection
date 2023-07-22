@@ -29,6 +29,7 @@ eval_rate = 0.2
 num_amino_acid = 23
 separate_len = 1
 rm_positive_neighbor = 3
+motif_neighbor = 2
 num_words = num_amino_acid ** separate_len
 num_tokens = 2
 batch_size = 1024
@@ -158,7 +159,8 @@ def make_dataset(motif_data, virus):
             protein_subnames=data['protein_subnames'],
             length=length,
             separate_len=separate_len,
-            rm_positive_neighbor=rm_positive_neighbor)
+            rm_positive_neighbor=rm_positive_neighbor,
+            motif_neighbor=motif_neighbor)
 
     dataset = dataset.make_dataset(records)
     return dataset

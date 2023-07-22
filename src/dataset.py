@@ -3,7 +3,8 @@ import numpy as np
 
 class Dataset:
     def __init__(self, motifs, protein_subnames, length=10,
-                 remove_X=True, separate_len=None, rm_positive_neighbor=0):
+                 remove_X=True, separate_len=None, rm_positive_neighbor=0,
+                 motif_neighbor=0):
         self.motifs = motifs        # dict: アノテーションするmotif配列情報
 
         # dict: タンパク質の種別とその異名をまとめた辞書
@@ -20,6 +21,9 @@ class Dataset:
 
         # int: 陽性となった断片の近傍n個のデータセットを除去する．
         self.rm_positive_neighbor = rm_positive_neighbor
+
+        # int: モチーフ周辺n残基を含めた配列を完全に含む配列断片を陽性とする
+        self.motif_neighbor = motif_neighbor
 
     def make_dataset(self, records):
         """ タンパク質毎にアミノ酸断片とラベルを生成
@@ -92,21 +96,34 @@ class Dataset:
         return x, y
 
     def _has_motif(self, labels):
+        """ アミノ酸断片がモチーフを保有する場合はTrueを返す """
         has_motif = False
 
-        ids = list(set(labels))
+        # SLiM周辺のself.motif_neighbor残基を陽性としてみなす
+        expanded_labels = labels.copy()
+        for i in range(len(labels)):
+            if labels[i] != 0:
+                for j in range(self.motif_neighbor):
+                    expanded_labels[max(i - (j + 1), 0)] = labels[i]
+                    expanded_labels[min(i + (j + 1), len(labels) - 1)] = \
+                            labels[i]
+
+        ids = list(set(expanded_labels))
         ids = [id for id in ids if id != 0]
 
         if ids != []:
             for id in ids:
+                threshold = len(self.motifs[id - 1]['motif_seq']) + \
+                    2 * self.motif_neighbor
+
                 count = 0
-                for label in labels:
+                for label in expanded_labels:
                     if label == id:
                         count += 1
                     else:
                         count = 0
 
-                    if count >= len(self.motifs[id - 1]['motif_seq']):
+                    if count >= threshold:
                         has_motif = True
                         break
 
@@ -156,10 +173,11 @@ class Dataset:
         # self.motifsに対して最大・最小モチーフ長を求める
         max_subsequence_len, min_subsequence_len = 0, 99999
         for motif_data in self.motifs:
-            max_subsequence_len = max(len(motif_data['subsequence']), \
-                                      max_subsequence_len)
-            min_subsequence_len = min(len(motif_data['subsequence']), \
-                                      min_subsequence_len)
+            subsequence = motif_data['motif_upstream_seq'] + \
+                          motif_data['motif_seq'] + \
+                          motif_data['motif_downstream_seq']
+            max_subsequence_len = max(len(subsequence), max_subsequence_len)
+            min_subsequence_len = min(len(subsequence), min_subsequence_len)
 
         if ignore_not_motif_protein:
             motif_ids = self._is_motif_protein(record.description)
@@ -181,7 +199,12 @@ class Dataset:
                     label_list += [0] * len(motif['motif_upstream_seq'])
                     label_list += [label_id] * len(motif['motif_seq'])
                     label_list += [0] * len(motif['motif_downstream_seq'])
-                    i += len(motif['subsequence'])
+
+                    subsequence_len = len(motif['motif_upstream_seq']) + \
+                                      len(motif['motif_seq']) + \
+                                      len(motif['motif_downstream_seq'])
+                    i += subsequence_len
+
                 else:
                     label_list.append(0)
                     i += 1
@@ -206,7 +229,10 @@ class Dataset:
         """
         label_id = 0
         for motif_id, motif_data in enumerate(self.motifs):
-            subsequence_length = len(motif_data['subsequence'])
+            subsequence = motif_data['motif_upstream_seq'] + \
+                          motif_data['motif_seq'] + \
+                          motif_data['motif_downstream_seq']
+            subsequence_length = len(subsequence)
 
             if len(fragment) < subsequence_length:
                 continue
@@ -214,7 +240,7 @@ class Dataset:
             threshold = subsequence_length - motif_data['replacement_tolerance']
 
             count = 0
-            for i, subsequence_char in enumerate(motif_data['subsequence']):
+            for i, subsequence_char in enumerate(subsequence):
                 if subsequence_char == fragment[i]:
                     count += 1
 

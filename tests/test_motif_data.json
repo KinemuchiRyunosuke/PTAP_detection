@@ -1,18 +1,11 @@
 [
     {
-        "virus": "HIV-1",
+        "virus": "test virus",
         "protein_subnames": {
-                "gag-pol": ["gag-pol"],
-                "gag": ["gag"],
                 "env": ["env", "gp120", "gp41", "gp160",
                         "envelope glycoprotein"],
-                "pol": ["pol protein", "pol polyprotein", "polymerase"],
-                "vif": ["vif", "viral infectivity factor"],
-                "vpr": ["vpr"],
                 "tat": ["tat"],
-                "rev": ["rev"],
-                "vpu": ["vpu"],
-                "nef": ["nef"]
+                "rev": ["rev"]
         },
         "motifs": [
             {
@@ -20,7 +13,6 @@
                 "motif_upstream_seq": "P",
                 "motif_seq": "QQQQ",
                 "motif_downstream_seq": "R",
-                "subsequence": "PQQQQR",
                 "start_index": 49,
                 "end_index": 54,
                 "neighbor": null,
@@ -31,7 +23,6 @@
                 "motif_upstream_seq": "A",
                 "motif_seq": "BCD",
                 "motif_downstream_seq": "E",
-                "subsequence": "ABCDE",
                 "start_index": 22,
                 "end_index": 26,
                 "neighbor": null,
@@ -39,11 +30,9 @@
             },
             {
                 "protein": "env",
-                "protein_subname": ["env"],
                 "motif_upstream_seq": "FG",
                 "motif_seq": "HIJ",
                 "motif_downstream_seq": "K",
-                "subsequence": "FGHIJK",
                 "start_index": 26,
                 "end_index": 31,
                 "neighbor": null,
