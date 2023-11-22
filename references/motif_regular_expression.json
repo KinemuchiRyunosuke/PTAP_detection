@@ -1,0 +1,6 @@
+{
+    "PTAP": ".P[TS]AP.",
+    "NES": "([DEQ].{0,1}[LIM].{2,3}[LIVMF][^P]{2,3}[LMVF].[LMIV].{0,3}[DE])|([DE].{0,1}[LIM].{2,3}[LIVMF][^P]{2,3}[LMVF].[LMIV].{0,3}[DEQ])",
+    "NLS": "[^DE]((K[RK])|(RK))[KRP][KR][^DE]",
+    "Yxxphi": "Y..[LMVIF]"
+}

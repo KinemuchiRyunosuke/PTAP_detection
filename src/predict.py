@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import pickle
 import csv
 import math
@@ -8,6 +9,7 @@ import glob
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from sklearn.metrics import confusion_matrix
 from Bio import SeqIO
@@ -62,12 +64,14 @@ train_tfrecord_path = "data/tfrecord/train_dataset.tfrecord"
 test_tfrecord_path = "data/tfrecord/test_dataset.tfrecord"
 vocab_path = "references/vocab.pickle"
 n_pos_neg_path = "references/n_positive_negative.json"
+motif_re_path = "references/motif_regular_expression.json"
 checkpoint_path = "models/saved_model.pb"
-result_path = "reports/evaluation.csv"
+result_on_training_data_path = "reports/result_on_training_data.csv"
 dataset_size_path = "reports/dataset_size.csv"
-false_positive_path = "reports/false_positive.csv"
 positive_pred_path = "reports/positive_pred.csv"
-result_nontraining_path = "reports/result_nontraining.csv"
+histogram_path = "reports/histogram.png"
+result_before_re = "reports/result_before_re.csv"
+result_after_re = "reports/result_after_re.csv"
 
 def main():
     gpus = tf.config.list_physical_devices(device_type='GPU')
@@ -139,13 +143,13 @@ def main():
         train(model=model,
               seq_length=length - separate_len + 2)
 
-    if not os.path.exists(result_path):
+    if not os.path.exists(histogram_path):
         print("================== EVALUATION ======================")
         model.load_weights(os.path.dirname(checkpoint_path))
         evaluate(motif_data=motif_data,
-                model=model,
-                seq_length=length - separate_len + 2,
-                vocab=vocab)
+                 model=model,
+                 seq_length=length - separate_len + 2,
+                 vocab=vocab)
 
     print("=========== PREDICT ON NON-TRAINING DATA ===========")
     predict_on_nontraining_data(model=model,
@@ -380,14 +384,18 @@ def train(model, seq_length):
             verbose=1)
 
 def evaluate(motif_data, model, seq_length, vocab):
-    if os.path.exists(false_positive_path):
-        os.remove(false_positive_path)
+    if os.path.exists(result_on_training_data_path):
+        os.remove(result_on_training_data_path)
 
     if os.path.exists(positive_pred_path):
         os.remove(positive_pred_path)
 
-    df = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
-    df.astype({'tn':'int', 'fp':'int', 'fn':'int', 'tp':'int'})
+    # 各ウイルス・タンパク質毎に混同行列を計算
+    df_cm = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
+    df_cm.astype({'tn':'int', 'fp':'int', 'fn':'int', 'tp':'int'})
+
+    # 陽性と判定されたデータの情報を保存
+    df_pos_pred = pd.DataFrame(columns=['virus', 'protein', 'y_pred', 'y_true', 'seq'])
 
     for content in motif_data:
         virusname = content['virus'].replace(' ', '_')
@@ -404,37 +412,44 @@ def evaluate(motif_data, model, seq_length, vocab):
             for x, y_true in eval_ds:   # 評価用データセットをbatchごとに取り出す
                 y_pred = model.predict_on_batch(x)
                 y_pred = np.squeeze(y_pred)
-                y_pred = (y_pred > threshold).astype(int)
                 y_true = np.squeeze(y_true)
+
+                df_partial = \
+                    pd.DataFrame([[virusname] * len(y_pred[y_pred > threshold]),
+                                 [protein] * len(y_pred[y_pred > threshold]),
+                                 y_pred[y_pred > threshold],
+                                 y_true[y_pred > threshold],
+                                 vocab.decode(x[y_pred > threshold], class_token=True)],
+                                 index=df_pos_pred.columns)
+                df_pos_pred = pd.concat([df_pos_pred, df_partial.T])
+
+                y_pred = (y_pred > threshold).astype(int)
                 cm += confusion_matrix(y_true, y_pred, labels=[0, 1])
-
-                # 偽陽性データを保存
-                x_fp = x[(y_true == 0) & (y_pred == 1)]
-                x_fp = vocab.decode(x_fp, class_token=True)
-
-                for seq in x_fp:
-                    with open(false_positive_path, 'a') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([virusname, seq])
-
-                # 陽性と判定されたデータを保存
-                x_pos_pred = x[(y_pred == 1)]
-                x_pos_pred = vocab.decode(x_pos_pred, class_token=True)
-
-                for seq in x_pos_pred:
-                    with open(positive_pred_path, 'a') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([virusname, seq])
 
             # 評価結果をDataFrameに保存
             row = pd.Series([virusname, protein,
                                 cm[0,0], cm[0,1], cm[1,0], cm[1,1]],
-                            index=df.columns)
-            df = pd.concat([df, pd.DataFrame(row).T])
+                            index=df_cm.columns)
+            df_cm = pd.concat([df_cm, pd.DataFrame(row).T])
 
-        df.to_csv(result_path, index=False)
+        df_cm.to_csv(result_on_training_data_path, index=False)
+        df_pos_pred.to_csv(positive_pred_path)
+
+        # ヒストグラムの描画
+        median = df_pos_pred.y_pred.median()
+        x = df_pos_pred['y_pred']
+        n, _ , _ = plt.hist(x, bins=50)
+        plt.vlines(median, 0, max(n), color='red')
+        plt.xlabel('output value')
+        plt.savefig(histogram_path)
+
+        return median
 
 def predict_on_nontraining_data(model, vocab):
+    # 学習データセットに対する出力値の中央値を取得
+    df = pd.read_csv(positive_pred_path)
+    median = df.y_pred.median()
+
     df_pos_pred = pd.DataFrame(columns=['species', 'description', 'output', 'seq'])
 
     target_species = glob.glob('data/eval/*.fasta')
@@ -463,8 +478,8 @@ def predict_on_nontraining_data(model, vocab):
             y_pred = model.predict_on_batch(x)
             y_pred = np.squeeze(y_pred)
 
-            x = x[y_pred > threshold]
-            y_pred = y_pred[y_pred > threshold]
+            x = x[y_pred > median]
+            y_pred = y_pred[y_pred > median]
 
             df = pd.DataFrame({
                 'species': [species] * len(x),
@@ -475,8 +490,31 @@ def predict_on_nontraining_data(model, vocab):
 
             df_pos_pred = pd.concat((df_pos_pred, df))
 
-    df_pos_pred.to_csv(result_nontraining_path, index=False)
+    df_pos_pred.to_csv(result_before_re, index=False)
 
+    # 正規表現を適用
+    df_pos_pred = apply_regular_expression(df_pos_pred)
+
+    if df_pos_pred is not None:
+        df_pos_pred.to_csv(result_after_re, index=False)
+
+def apply_regular_expression(df):
+    with open(motif_re_path, 'r') as f:
+        motif_re = json.load(f)
+        pattern = motif_re[args.target_motif]
+
+    pattern = re.compile(pattern)
+
+    def pattern_match(seq):
+        if pattern.match(seq):
+            return True
+        else:
+            return False
+
+    rows_to_drop = ~df['seq'].map(pattern_match)
+    df = df.drop(df[rows_to_drop].index, inplace=True)
+
+    return df
 
 if __name__ == '__main__':
     main()
