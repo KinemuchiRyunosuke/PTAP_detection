@@ -3,6 +3,7 @@ import json
 import pickle
 import csv
 import math
+import argparse
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -16,10 +17,11 @@ from preprocessing import add_class_token, under_sampling, shuffle, \
 from models.transformer import BinaryClassificationTransformer
 
 
-# 解析を行うモチーフ
-target_motif = "PTAP"
-
-test_mode = True
+parser = argparse.ArgumentParser()
+parser.add_argument('target_motif', help='解析対象とするSLiM')
+parser.add_argument('-t', '--test', type=bool, default=False,
+                    help='Trueとした場合，テストモードで実行する')
+args = parser.parse_args()
 
 # parameters
 length = 26
@@ -43,7 +45,7 @@ lr = 2.60e-5            # 学習率
 beta = 0.5              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
 
-if test_mode:
+if args.test:
     batch_size = 100000
     epochs = 1
     hopping_num = 1
@@ -73,11 +75,11 @@ def main():
 
     with open(motif_data_path, 'r') as f:
         motif_data = json.load(f)
-        motif_data = motif_data[target_motif]
+        motif_data = motif_data[args.target_motif]
 
     if not finish_making_dataset(motif_data):
         print("================== MAKING DATASET ==================")
-        # データセットを生成
+
         for content in motif_data:
             virus = content['virus'].replace(' ', '_')
             out_dir = os.path.join(processed_dir, virus)
@@ -94,7 +96,7 @@ def main():
                 out_path = os.path.join(out_dir, f'{protein}.pickle')
 
                 with open(out_path, 'wb') as f:
-                    if test_mode:
+                    if args.test:
                         pickle.dump(x[:10000], f)
                         pickle.dump(y[:10000], f)
                     else:
@@ -162,7 +164,7 @@ def make_dataset(motif_data, virus):
             rm_positive_neighbor=rm_positive_neighbor,
             motif_neighbor=motif_neighbor)
 
-    dataset = dataset.make_dataset(records)
+    dataset = dataset.make_dataset(records, test_mode=args.test)
     return dataset
 
 def fit_vocab(motif_data):

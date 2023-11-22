@@ -25,7 +25,7 @@ class Dataset:
         # int: モチーフ周辺n残基を含めた配列を完全に含む配列断片を陽性とする
         self.motif_neighbor = motif_neighbor
 
-    def make_dataset(self, records):
+    def make_dataset(self, records, test_mode=False):
         """ タンパク質毎にアミノ酸断片とラベルを生成
 
         Arg:
@@ -40,8 +40,12 @@ class Dataset:
         dataset = {protein: None for protein in protein_list}
 
         for protein in protein_list:
-
             xs, ys = [], []
+
+            # テストモードの場合，計算量短縮のためにループ回数を制限
+            if test_mode:
+                test_count = 0
+
             for record in records:
                 if self._get_protein_name(record) != protein:
                     continue
@@ -52,6 +56,11 @@ class Dataset:
 
                 if len(record.seq) < self.length:
                     continue
+
+                if test_mode:
+                    test_count += 1
+                    if test_count > 100:
+                        break
 
                 label_list = self._annotate(record)
 
