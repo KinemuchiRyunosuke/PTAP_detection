@@ -91,6 +91,32 @@
                     "replacement_tolerance": 4
                 }
             ]
+        },
+        {
+        "virus": "HTLV-1",
+            "protein_subnames": {
+                "env": ["env ", "env,", "envelope", "gp21", "gp46"],
+                "gag-pro-pol": ["gag-pro-pol"],
+                "gag-pro": ["gag-pro"],
+                "gag": ["gag ", "gag,"],
+                "pro": ["pro ", "pro,", "protease"],
+                "pol": ["pol ", "pol,"],
+                "HBZ": ["HBZ", "bzip protein", "bzip factor"],
+                "tax": ["tax"],
+                "rex": ["rex"],
+                "pX": ["p12", "p13", "p21", "p24", "p27", "p30", "pX"]
+            },
+            "motifs": [
+                {
+                    "protein": "gag",
+                    "motif_upstream_seq": "PPPYV",
+                    "motif_seq": "EPTAPQ",
+                    "motif_downstream_seq": "VLPVM",
+                    "start_index": 123,
+                    "end_index": 128,
+                    "replacement_tolerance": 4
+                }
+            ]
         }
     ],
 
