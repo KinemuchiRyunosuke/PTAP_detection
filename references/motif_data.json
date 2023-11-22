@@ -94,6 +94,95 @@
         }
     ],
 
+    "NES": [
+        {
+            "virus": "HIV-1",
+            "protein_subnames": {
+                "gag-pol": ["gag-pol"],
+                "gag": ["gag"],
+                "env": ["env", "gp120", "gp41", "gp160",
+                        "envelope glycoprotein"],
+                "pol": ["pol protein", "pol polyprotein", "polymerase"],
+                "vif": ["vif", "viral infectivity factor"],
+                "vpr": ["vpr"],
+                "tat": ["tat"],
+                "rev": ["rev"],
+                "vpu": ["vpu"],
+                "nef": ["nef"]
+            },
+            "motifs": [
+                {
+                    "protein": "rev",
+                    "motif_upstream_seq": "",
+                    "motif_seq": "QLPPLERLTLDCSE",
+                    "motif_downstream_seq": "",
+                    "start_index": 339,
+                    "end_index": 352,
+                    "replacement_tolerance": 4
+                }
+            ]
+        },
+        {
+            "virus": "HTLV-1",
+            "protein_subnames": {
+                "env": ["env ", "env,", "envelope", "gp21", "gp46"],
+                "gag-pro-pol": ["gag-pro-pol"],
+                "gag-pro": ["gag-pro"],
+                "gag": ["gag ", "gag,"],
+                "pro": ["pro ", "pro,", "protease"],
+                "pol": ["pol ", "pol,"],
+                "HBZ": ["HBZ", "bzip protein", "bzip factor"],
+                "tax": ["tax"],
+                "rex": ["rex"],
+                "pX": ["p12", "p13", "p21", "p24", "p27", "p30", "pX"]
+            },
+            "motifs": [
+                {
+                    "protein": "rex",
+                    "motif_upstream_seq": "",
+                    "motif_seq": "DALSAQLYSSLSLD",
+                    "motif_downstream_seq": "",
+                    "start_index": 80,
+                    "end_index": 93,
+                    "replacement_tolerance": 4
+                }
+            ]
+        },
+        {
+            "virus": "influenza A virus H1N1",
+            "protein_subnames": {
+                "NEP": ["NEP", "nuclear export protein", "NS2 ",
+                        "nonstructural protein 2",
+                        "non structural protein 2"],
+                "NA": ["neuraminidase", "NA ", "NA,"],
+                "PA-X": ["PA-X ", "PA-X,"],
+                "PA": ["PA ", "PA,"],
+                "NP": ["nucleoprotein", "nucleocapsid protein",
+                       "NP ", "NP,"],
+                "PB1-F2": ["PB1-F2"],
+                "PB1": ["PB1 ", "PB1,"],
+                "PB2": ["PB2 ", "PB2,"],
+                "HA": ["hemagglutinin", "haemagglutinin", "heamagglutinin",
+                       "hemaglutinin", "HA ", "HA,"],
+                "NS1": ["non-structural protein 1", "non structural protein 1",
+                        "nonstructural protein 1", "NS1 ", "NS1,"],
+                "M1": ["matrix protein 1", "M1 ", "M1,"],
+                "M2": ["matrix protein 2", "M2 ", "M2,"]
+            },
+            "motifs": [
+                {
+                    "protein": "NEP",
+                    "motif_upstream_seq": "SSFQ",
+                    "motif_seq": "DILLRMSKMQLE",
+                    "motif_downstream_seq": "SSSG",
+                    "start_index": 11,
+                    "end_index": 22,
+                    "replacement_tolerance": 7
+                }
+            ]
+        }
+    ],
+
     "NLS": [
         {
             "virus": "HIV-1",
@@ -168,6 +257,90 @@
                     "start_index": 158,
                     "end_index": 163,
                     "replacement_tolerance": 6
+                }
+            ]
+        }
+    ],
+
+    "Yxxphi": [
+        {
+            "virus": "HIV-1",
+            "protein_subnames": {
+                "gag-pol": ["gag-pol"],
+                "gag": ["gag"],
+                "env": ["env", "gp120", "gp41", "gp160",
+                        "envelope glycoprotein"],
+                "pol": ["pol protein", "pol polyprotein", "polymerase"],
+                "vif": ["vif", "viral infectivity factor"],
+                "vpr": ["vpr"],
+                "tat": ["tat"],
+                "rev": ["rev"],
+                "vpu": ["vpu"],
+                "nef": ["nef"]
+            },
+            "motifs": [
+                {
+                    "protein": "env",
+                    "motif_upstream_seq": "RQG",
+                    "motif_seq": "YSPL",
+                    "motif_downstream_seq": "S",
+                    "start_index": 712,
+                    "end_index": 715,
+                    "replacement_tolerance": 2
+                }
+            ]
+        },
+        {
+            "virus": "HTLV-2",
+            "protein_subnames": {
+                "gag-pro-pol": ["gag-pro-pol"],
+                "gag-pro": ["gag-pro"],
+                "pro": ["pro protein"],
+                "gag": ["gag ", "gag,"],
+                "env": ["env", "gp20", "gp21", "gp35", "gp63",
+                        "gp46", "envelope glycoprotein"],
+                "tax": ["tax ", "tax,"],
+                "rex": ["rex ", "rex,"],
+                "pol": ["pol ", "pol,", "polymerase"]
+            },
+            "motifs": [
+                {
+                    "protein": "env",
+                    "motif_upstream_seq": "RHNQ",
+                    "motif_seq": "YSLI",
+                    "motif_downstream_seq": "NPET",
+                    "start_index": 477,
+                    "end_index": 480,
+                    "replacement_tolerance": 3
+                }
+            ]
+        },
+        {
+            "virus": "Bovine leukemia virus",
+            "protein_subnames": {
+                "gag-pro-pol": ["gag-pro-pol"],
+                "gag-pro": ["gag-pro"],
+                "gag": ["gag ", "gag,"],
+                "pro": ["pro ", "pro,", "protease"],
+                "env": ["env ", "env,", "gp5", "gp30", "gp51", "gp60",
+                        "envelope"],
+                "tax": ["tax ", "tax,"],
+                "rex": ["rex ", "rex,"],
+                "G4": ["G4"],
+                "R3": ["R3"],
+                "pX": ["p4", "p5", "p10", "p11", "p11", "p12", "p14",
+                        "p18", "p24", "p34"],
+                "pol": ["pol ", "pol,", "polymerase"]
+            },
+            "motifs": [
+                {
+                    "protein": "env",
+                    "motif_upstream_seq": "PDSD",
+                    "motif_seq": "YQAL",
+                    "motif_downstream_seq": "LPSA",
+                    "start_index": 487,
+                    "end_index": 490,
+                    "replacement_tolerance": 3
                 }
             ]
         }

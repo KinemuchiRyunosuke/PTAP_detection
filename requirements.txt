@@ -3,3 +3,5 @@ keras == 2.6.0
 optuna
 Bio
 imblearn
+pandas
+invoke
