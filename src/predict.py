@@ -4,6 +4,7 @@ import pickle
 import csv
 import math
 import argparse
+import glob
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -66,6 +67,7 @@ result_path = "reports/evaluation.csv"
 dataset_size_path = "reports/dataset_size.csv"
 false_positive_path = "reports/false_positive.csv"
 positive_pred_path = "reports/positive_pred.csv"
+result_nontraining_path = "reports/result_nontraining.csv"
 
 def main():
     gpus = tf.config.list_physical_devices(device_type='GPU')
@@ -137,12 +139,17 @@ def main():
         train(model=model,
               seq_length=length - separate_len + 2)
 
-    print("================== EVALUATION ======================")
-    model.load_weights(os.path.dirname(checkpoint_path))
-    evaluate(motif_data=motif_data,
-             model=model,
-             seq_length=length - separate_len + 2,
-             vocab=vocab)
+    if not os.path.exists(result_path):
+        print("================== EVALUATION ======================")
+        model.load_weights(os.path.dirname(checkpoint_path))
+        evaluate(motif_data=motif_data,
+                model=model,
+                seq_length=length - separate_len + 2,
+                vocab=vocab)
+
+    print("=========== PREDICT ON NON-TRAINING DATA ===========")
+    predict_on_nontraining_data(model=model,
+                                vocab=vocab)
 
 def make_dataset(motif_data, virus):
     # 対象となるウイルスのJSONデータを取得
@@ -426,6 +433,49 @@ def evaluate(motif_data, model, seq_length, vocab):
             df = pd.concat([df, pd.DataFrame(row).T])
 
         df.to_csv(result_path, index=False)
+
+def predict_on_nontraining_data(model, vocab):
+    df_pos_pred = pd.DataFrame(columns=['species', 'description', 'output', 'seq'])
+
+    target_species = glob.glob('data/eval/*.fasta')
+    target_species = [os.path.basename(species).replace('.fasta', '') \
+                      for species in target_species]
+
+    for species in target_species:
+        fasta_path = f'data/eval/{species}.fasta'
+        with open(fasta_path, 'r') as f:
+            records = [record for record in SeqIO.parse(f, 'fasta') \
+                        if (len(record.seq) >= length) \
+                            & (not 'X' in record.seq)]
+
+        for record in records:
+            seqs = []
+
+            # アミノ酸配列を断片化
+            for i in range(len(record.seq) - length + 1):
+                seq = str(record.seq[i:(i+length)])
+                seq = ' '.join(list(seq))
+                seqs.append(seq)
+
+            x = vocab.encode(seqs)
+            x = add_class_token(x)
+
+            y_pred = model.predict_on_batch(x)
+            y_pred = np.squeeze(y_pred)
+
+            x = x[y_pred > threshold]
+            y_pred = y_pred[y_pred > threshold]
+
+            df = pd.DataFrame({
+                'species': [species] * len(x),
+                'description': [record.description] * len(x),
+                'output': y_pred,
+                'seq': vocab.decode(x, class_token=True)
+                })
+
+            df_pos_pred = pd.concat((df_pos_pred, df))
+
+    df_pos_pred.to_csv(result_nontraining_path, index=False)
 
 
 if __name__ == '__main__':
