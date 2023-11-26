@@ -68,10 +68,9 @@ motif_re_path = "references/motif_regular_expression.json"
 checkpoint_path = "models/saved_model.pb"
 result_on_training_data_path = "reports/result_on_training_data.csv"
 dataset_size_path = "reports/dataset_size.csv"
-positive_pred_path = "reports/positive_pred.csv"
+pred_on_training_path = "reports/positive_pred_on_training_virus.csv"
 histogram_path = "reports/histogram.png"
-result_before_re = "reports/result_before_re.csv"
-result_after_re = "reports/result_after_re.csv"
+pred_on_nontraining_path = "reports/positive_pred_on_nontraining_virus.csv"
 
 def main():
     gpus = tf.config.list_physical_devices(device_type='GPU')
@@ -387,8 +386,8 @@ def evaluate(motif_data, model, seq_length, vocab):
     if os.path.exists(result_on_training_data_path):
         os.remove(result_on_training_data_path)
 
-    if os.path.exists(positive_pred_path):
-        os.remove(positive_pred_path)
+    if os.path.exists(pred_on_training_path):
+        os.remove(pred_on_training_path)
 
     # 各ウイルス・タンパク質毎に混同行列を計算
     df_cm = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
@@ -432,24 +431,18 @@ def evaluate(motif_data, model, seq_length, vocab):
                             index=df_cm.columns)
             df_cm = pd.concat([df_cm, pd.DataFrame(row).T])
 
-        df_cm.to_csv(result_on_training_data_path, index=False)
-        df_pos_pred.to_csv(positive_pred_path)
+    df_cm.to_csv(result_on_training_data_path, index=False)
+    df_pos_pred.to_csv(pred_on_training_path)
 
-        # ヒストグラムの描画
-        median = df_pos_pred.y_pred.median()
-        x = df_pos_pred['y_pred']
-        n, _ , _ = plt.hist(x, bins=50)
-        plt.vlines(median, 0, max(n), color='red')
-        plt.xlabel('output value')
-        plt.savefig(histogram_path)
-
-        return median
+    # ヒストグラムの描画
+    median = df_pos_pred.y_pred.median()
+    x = df_pos_pred['y_pred']
+    n, _ , _ = plt.hist(x, bins=50)
+    plt.vlines(median, 0, max(n), color='red')
+    plt.xlabel('output value')
+    plt.savefig(histogram_path)
 
 def predict_on_nontraining_data(model, vocab):
-    # 学習データセットに対する出力値の中央値を取得
-    df = pd.read_csv(positive_pred_path)
-    median = df.y_pred.median()
-
     df_pos_pred = pd.DataFrame(columns=['species', 'description', 'output', 'seq'])
 
     target_species = glob.glob('data/eval/*.fasta')
@@ -478,8 +471,8 @@ def predict_on_nontraining_data(model, vocab):
             y_pred = model.predict_on_batch(x)
             y_pred = np.squeeze(y_pred)
 
-            x = x[y_pred > median]
-            y_pred = y_pred[y_pred > median]
+            x = x[y_pred > threshold]
+            y_pred = y_pred[y_pred > threshold]
 
             df = pd.DataFrame({
                 'species': [species] * len(x),
@@ -490,19 +483,14 @@ def predict_on_nontraining_data(model, vocab):
 
             df_pos_pred = pd.concat((df_pos_pred, df))
 
-    df_pos_pred.to_csv(result_before_re, index=False)
-
-    # 正規表現を適用
-    df_pos_pred = apply_regular_expression(df_pos_pred)
-
-    if df_pos_pred is not None:
-        df_pos_pred.to_csv(result_after_re, index=False)
+    df_pos_pred.to_csv(pred_on_nontraining_path, index=False)
 
 def apply_regular_expression(df):
     with open(motif_re_path, 'r') as f:
         motif_re = json.load(f)
         pattern = motif_re[args.target_motif]
 
+    pattern = '.*' + pattern + '.*'
     pattern = re.compile(pattern)
 
     def pattern_match(seq):

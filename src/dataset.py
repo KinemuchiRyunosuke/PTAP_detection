@@ -201,7 +201,7 @@ class Dataset:
 
             while(i < len(record.seq) - min_subsequence_len + 1):
                 fragment = record.seq[i:(i + max_subsequence_len)]
-                label_id = self._annotate_one(fragment)
+                label_id = self._annotate_one(fragment, motif_ids)
 
                 if label_id in motif_ids:
                     motif = self.motifs[label_id - 1]
@@ -224,11 +224,13 @@ class Dataset:
 
         return label_list
 
-    def _annotate_one(self, fragment):
-        """ アミノ酸断片がモチーフ配列である場合1, そうでない場合は0を返す
+    def _annotate_one(self, fragment, motif_ids):
+        """ アミノ酸断片がモチーフ配列である場合モチーフの番号,
+            そうでない場合は0を返す
 
         Args:
             fragment(str): アミノ酸断片．
+            motif_ids: 指定された番号のモチーフに対してだけアノテーションを行う
 
         Return:
             int: アミノ酸断片がmotif_dataに記されたモチーフと一致した場合は
@@ -237,7 +239,9 @@ class Dataset:
 
         """
         label_id = 0
-        for motif_id, motif_data in enumerate(self.motifs):
+        for motif_id in motif_ids:
+            motif_data = self.motifs[motif_id - 1]
+
             subsequence = motif_data['motif_upstream_seq'] + \
                           motif_data['motif_seq'] + \
                           motif_data['motif_downstream_seq']
@@ -254,7 +258,7 @@ class Dataset:
                     count += 1
 
             if count >= threshold:
-                label_id = motif_id + 1
+                label_id = motif_id
                 break
 
         return label_id

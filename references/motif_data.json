@@ -108,6 +108,24 @@
             },
             "motifs": [
                 {
+                    "protein": "gag-pro-pol",
+                    "motif_upstream_seq": "PPPYV",
+                    "motif_seq": "EPTAPQ",
+                    "motif_downstream_seq": "VLPVM",
+                    "start_index": 123,
+                    "end_index": 128,
+                    "replacement_tolerance": 4
+                },
+                {
+                    "protein": "gag-pro",
+                    "motif_upstream_seq": "PPPYV",
+                    "motif_seq": "EPTAPQ",
+                    "motif_downstream_seq": "VLPVM",
+                    "start_index": 123,
+                    "end_index": 128,
+                    "replacement_tolerance": 4
+                },
+                {
                     "protein": "gag",
                     "motif_upstream_seq": "PPPYV",
                     "motif_seq": "EPTAPQ",

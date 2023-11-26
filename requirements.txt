@@ -5,3 +5,4 @@ Bio
 imblearn
 pandas
 invoke
+matplotlib
