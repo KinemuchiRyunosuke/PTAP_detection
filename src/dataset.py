@@ -189,7 +189,7 @@ class Dataset:
             min_subsequence_len = min(len(subsequence), min_subsequence_len)
 
         if ignore_not_motif_protein:
-            motif_ids = self._is_motif_protein(record.description)
+            motif_ids = self._is_motif_protein(record)
         else:
             motif_ids = [i + 1 for i in range(len(self.motifs))]
 
@@ -263,12 +263,12 @@ class Dataset:
 
         return label_id
 
-    def _is_motif_protein(self, desc):
+    def _is_motif_protein(self, record):
         """ レコードのヘッダー行を参照し，モチーフを保有するタンパク質である場合は
             モチーフの番号をリストにして返す
 
         Arg:
-            desc(str): FASTAファイルのレコードのヘッダー行
+            desc(str): FASTAファイルのレコード
 
         Return:
             list of int: モチーフを保有するタンパク質である場合，そのタンパク質で
@@ -276,14 +276,9 @@ class Dataset:
 
         """
         motif_ids = []
-
         for motif_id, motif_data in enumerate(self.motifs):
-            protein_subnames = self.protein_subnames
-            keywords = protein_subnames[motif_data['protein']]
-            for keyword in keywords:
-                if keyword in desc:
-                    motif_ids.append(motif_id + 1)
-                    break
+            if motif_data['protein'] == self._get_protein_name(record):
+                motif_ids.append(motif_id + 1)
 
         return motif_ids
 
