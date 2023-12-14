@@ -1,53 +1,88 @@
 import numpy as np
+import itertools
 
 import tensorflow as tf
 from imblearn.under_sampling import RandomUnderSampler
 
-
 class Vocab:
-    def __init__(self, tokenizer):
-        self.tokenizer = tokenizer
-
-    def fit(self, texts):
-        """ 単語のベクトル化の準備
-
-        Arg:
-            texts([str], ndarray): 単語のリスト
-                e.g. ['VPTAPP',
-                      'ATSQVP']
-
-        Return:
-            self(Vocab instance): 学習を完了したインスタンス
+    def __init__(self, separate_len):
+        """
+        Args:
+            separate_len(int): n連続アミノ酸頻度でIDに変換する
 
         """
-        if type(texts).__module__ == 'numpy':
-            texts = np.squeeze(texts)
-            texts = texts.tolist()
+        amino_acids = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I',
+                       'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 
-        self.tokenizer.fit_on_texts(texts)
-        return self
+        vocab_list = itertools.product(amino_acids, repeat=separate_len)
+        vocab_list = [''.join(vocab) for vocab in vocab_list]
+
+        encode_table = {'<PAD>': 0, '<CLS>': 1, 'X': 2}     # <PAD>: padding token
+        decode_table = {0: '<PAD>', 1: '<CLS>', 2: 'X'}     # <CLS>: class token
+        for i, amino_acid in enumerate(vocab_list):     # X: 未知のアミノ酸，または
+            encode_table[amino_acid] = i + 3            # 上記アミノ酸以外のアミノ酸
+            decode_table[i + 3] = amino_acid
+
+        self.encode_table = encode_table
+        self.decode_table = decode_table
 
     def encode(self, texts):
-        """ 単語のリストを整数のリストに変換する
+        """ 単語のリストを整数のリストに変換し，クラストークンを付加
 
         Arg:
-            texts(list, ndarray): 単語のリスト
+            texts(list, ndarray): スペース区切りの単語のリスト
+                e.g. ['M N R K K P', 'F L V S Q T', ...]
+
 
         Return:
-            ndarray: shape=(n_samples, n_words)
-                e.g. [[0, 1, 2, 3, 4, 4],
-                      [3, 2, 5, 6, 0, 4]]
+            ndarray: shape=(n_samples, n_words + 1)
+                e.g. [[1, 8, 5, 6, 3, 4, 4],
+                      [1, 9, 5, 7, 4, 4, 8], ...]
 
         """
         if type(texts).__module__ == 'numpy':
             texts = np.squeeze(texts)
             texts = texts.tolist()
 
-        sequences = self.tokenizer.texts_to_sequences(texts)
+        texts = [text.split() for text in texts]
 
-        return np.array(sequences, dtype=np.int64)
+        encoded_texts = [self._encode_one(text) for text in texts]
+        encoded_texts = self._add_class_token(encoded_texts)
 
-    def decode(self, sequences, class_token=False):
+        return encoded_texts
+
+    def _encode_one(self, text):
+        encoded_text = []
+        for word in text:
+            try:
+                encoded_text.append(self.encode_table[word])
+            except KeyError:
+                encoded_text.append(self.encode_table['X'])
+
+        return encoded_text
+
+    def _add_class_token(self, sequences):
+        """ class token を先頭に付加する
+
+        class token として1を用いる．
+
+        Arg:
+            sequences: arraylike
+                shape=(n_sequence, len)
+
+        Return:
+            ndarray: shape=(n_sequences, len + 1)
+        """
+        if isinstance(sequences, list):
+            sequences = np.array(sequences)
+
+        # class_token = 1
+        cls_arr = np.ones((len(sequences), 1))
+        sequences = np.hstack([cls_arr, sequences])
+
+        return sequences.astype(np.int64)
+
+    def decode(self, sequences):
         """ 整数のリストを単語のリストに変換する
 
         Arg:
@@ -58,18 +93,18 @@ class Vocab:
             [str]: 単語のリスト
 
         """
-        if class_token:  # class_tokenを削除
-            sequences = np.delete(sequences, 0, axis=-1)
+        # class_tokenを削除
+        sequences = np.delete(sequences, 0, axis=-1)
 
         # ndarrayからlistに変換
         sequences = sequences.tolist()
 
-        texts = self.tokenizer.sequences_to_texts(sequences)
-
-        for i, text in enumerate(texts):
-            text = text.split()
-            text = [text[0]] + list(map(lambda word: word[0], text[1:]))
-            texts[i] = ''.join(text)
+        texts = []
+        for sequence in sequences:
+            text = [self.decode_table[n] for n in sequence]
+            text = [text[0]] + [word[-1] for word in text[1:]]
+            text = ''.join(text)
+            texts.append(text)
 
         return texts
 
@@ -95,27 +130,6 @@ def write_tfrecord(sequences, labels, filename):
 
         writer.write(ex.SerializeToString())
     writer.close()
-
-def add_class_token(sequences):
-    """ class token を先頭に付加する
-
-    class token として0を用いる．
-
-    Arg:
-        sequences: arraylike
-            shape=(n_sequence, len)
-
-    Return:
-        ndarray: shape=(n_sequences, len + 1)
-    """
-    if isinstance(sequences, list):
-        sequences = np.array(sequences)
-
-    # class_token = 0
-    cls_arr = np.zeros((len(sequences), 1))
-    sequences = np.hstack([cls_arr, sequences])
-
-    return sequences.astype(np.int64)
 
 def load_dataset(filename, batch_size, length, buffer_size=1000):
     def dict2tuple(feat):

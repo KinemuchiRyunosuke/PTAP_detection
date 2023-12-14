@@ -15,7 +15,7 @@ from sklearn.metrics import confusion_matrix
 from Bio import SeqIO
 
 from dataset import Dataset
-from preprocessing import add_class_token, under_sampling, shuffle, \
+from preprocessing import under_sampling, shuffle, \
         write_tfrecord, load_dataset, Vocab
 from models.transformer import BinaryClassificationTransformer
 
@@ -35,8 +35,6 @@ num_amino_acid = 23
 separate_len = 1
 rm_positive_neighbor = 3
 motif_neighbor = 2
-num_words = num_amino_acid ** separate_len
-num_tokens = 2
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -62,7 +60,6 @@ tfrecord_dir = "data/tfrecord/"
 eval_tfrecord_dir = "data/tfrecord/eval/"
 train_tfrecord_path = "data/tfrecord/train_dataset.tfrecord"
 test_tfrecord_path = "data/tfrecord/test_dataset.tfrecord"
-vocab_path = "references/vocab.pickle"
 n_pos_neg_path = "references/n_positive_negative.json"
 motif_re_path = "references/motif_regular_expression.json"
 checkpoint_path = "models/saved_model.pb"
@@ -108,18 +105,7 @@ def main():
                         pickle.dump(x, f)
                         pickle.dump(y, f)
 
-    if not os.path.exists(vocab_path):
-        print("================== FITTING =========================")
-        vocab = fit_vocab(motif_data=motif_data)
-
-        with open(vocab_path, 'wb') as f:
-            pickle.dump(vocab.tokenizer, f)
-
-    else:
-        with open(vocab_path, 'rb') as f:
-            tokenizer = pickle.load(f)
-        vocab = Vocab(tokenizer)
-
+    vocab = Vocab(separate_len=separate_len)
 
     if not (os.path.exists(train_tfrecord_path) \
             and os.path.exists(test_tfrecord_path)):
@@ -140,7 +126,7 @@ def main():
     if not os.path.exists(checkpoint_path):
         print("================== TRAINING ========================")
         train(model=model,
-              seq_length=length - separate_len + 2)
+              seq_length=length - (separate_len - 1) + 1)
 
     if not os.path.exists(histogram_path):
         print("================== EVALUATION ======================")
@@ -176,32 +162,6 @@ def make_dataset(motif_data, virus):
 
     dataset = dataset.make_dataset(records, test_mode=args.test)
     return dataset
-
-def fit_vocab(motif_data):
-    tokenizer = tf.keras.preprocessing.text.Tokenizer(
-                num_words=num_words,
-                oov_token='X',
-                filters='',
-                lower=False,
-                split=' ',
-                char_level=False
-    )
-
-    vocab = Vocab(tokenizer)
-
-    for content in motif_data:
-        virus = content['virus'].replace(' ', '_')
-
-        for protein in content['protein_subnames'].keys():
-            dataset_path = os.path.join(os.path.join(
-                processed_dir, virus), f'{protein}.pickle')
-
-            with open(dataset_path, 'rb') as f:
-                x = pickle.load(f)
-
-            vocab.fit(x)
-
-    return vocab
 
 def finish_making_dataset(motif_data):
     finish = True
@@ -245,7 +205,6 @@ def preprocess_dataset(motif_data, vocab):
             x, y = x[n_eval_ds:], y[n_eval_ds:]
 
             x_eval = vocab.encode(x_eval)
-            x_eval = add_class_token(x_eval)
 
             eval_tfrecord_path = os.path.join(os.path.join(
                     eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
@@ -293,7 +252,6 @@ def preprocess_dataset(motif_data, vocab):
     x_test = X_test['seq']
 
     x_train, x_test = vocab.encode(x_train), vocab.encode(x_test)
-    x_train, x_test = add_class_token(x_train), add_class_token(x_test)
 
     # シャッフル
     shuffle(x_test, y_test, seed)
@@ -324,8 +282,11 @@ def count_dataset(X, y, motif_data):
 
 def create_model():
     """ モデルを定義する """
+    # '<PAD>', '<CLS>', 'X' の3つのトークンを含める
+    vocab_size = num_amino_acid ** separate_len + 3
+
     model = BinaryClassificationTransformer(
-                vocab_size=num_words + num_tokens,
+                vocab_size=vocab_size,
                 hopping_num=hopping_num,
                 head_num=head_num,
                 hidden_dim=hidden_dim,
@@ -418,7 +379,7 @@ def evaluate(motif_data, model, seq_length, vocab):
                                  [protein] * len(y_pred[y_pred > threshold]),
                                  y_pred[y_pred > threshold],
                                  y_true[y_pred > threshold],
-                                 vocab.decode(x[y_pred > threshold], class_token=True)],
+                                 vocab.decode(x[y_pred > threshold])],
                                  index=df_pos_pred.columns)
                 df_pos_pred = pd.concat([df_pos_pred, df_partial.T])
 
@@ -466,7 +427,6 @@ def predict_on_nontraining_data(model, vocab):
                 seqs.append(seq)
 
             x = vocab.encode(seqs)
-            x = add_class_token(x)
 
             y_pred = model.predict_on_batch(x)
             y_pred = np.squeeze(y_pred)
@@ -478,7 +438,7 @@ def predict_on_nontraining_data(model, vocab):
                 'species': [species] * len(x),
                 'description': [record.description] * len(x),
                 'output': y_pred,
-                'seq': vocab.decode(x, class_token=True)
+                'seq': vocab.decode(x)
                 })
 
             df_pos_pred = pd.concat((df_pos_pred, df))
