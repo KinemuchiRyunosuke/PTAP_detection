@@ -122,11 +122,26 @@ def make_example(sequence, label):
                 int64_list=tf.train.Int64List(value=label))
     }))
 
-def write_tfrecord(sequences, labels, filename):
+def write_tfrecord(sequences, labels, filename, sample_weights=None):
     """ tf.data.Datasetに変換 """
     writer = tf.io.TFRecordWriter(filename)
-    for sequence, label in zip(sequences, labels):
-        ex = make_example(sequence.tolist(), [int(label)])
+    for i, (sequence, label) in enumerate(zip(sequences, labels)):
+        if sample_weights is None:
+            ex =  tf.train.Example(features=tf.train.Features(feature={
+                'x': tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=sequence.tolist())),
+                'y': tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=[int(label)]))
+            }))
+        else:
+            ex =  tf.train.Example(features=tf.train.Features(feature={
+                'x': tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=sequence.tolist())),
+                'y': tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=[int(label)])),
+                'sample_weights': tf.train.Feature(
+                        float_list=tf.train.FloatList(value=[sample_weights[i]]))
+            }))
 
         writer.write(ex.SerializeToString())
     writer.close()

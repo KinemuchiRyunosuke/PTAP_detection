@@ -29,12 +29,12 @@ args = parser.parse_args()
 # parameters
 length = 26
 n_gram = True
-val_rate = 0.2
-eval_rate = 0.2
+test_rate = 0.2     # 評価用データセットの割合
+val_rate = 0.2      # 非評価用データセットにおける検証用データセットの割合
 num_amino_acid = 23
 separate_len = 1
-rm_positive_neighbor = 3
-motif_neighbor = 2
+rm_positive_neighbor = 0
+motif_neighbor = 0
 batch_size = 1024
 epochs = 50
 threshold = 0.5         # 陽性・陰性の閾値
@@ -57,16 +57,14 @@ motif_data_path = 'references/motif_data.json'
 fasta_dir = "data/interim/"
 processed_dir = "data/processed/"
 tfrecord_dir = "data/tfrecord/"
-eval_tfrecord_dir = "data/tfrecord/eval/"
+test_tfrecord_dir = "data/tfrecord/test/"
 train_tfrecord_path = "data/tfrecord/train_dataset.tfrecord"
-test_tfrecord_path = "data/tfrecord/test_dataset.tfrecord"
-n_pos_neg_path = "references/n_positive_negative.json"
+val_tfrecord_path = "data/tfrecord/val_dataset.tfrecord"
 motif_re_path = "references/motif_regular_expression.json"
 checkpoint_path = "models/saved_model.pb"
-result_on_training_data_path = "reports/result_on_training_data.csv"
+performance_evaluation_path = "reports/performance_evaluation.csv"
 dataset_size_path = "reports/dataset_size.csv"
 pred_on_training_path = "reports/positive_pred_on_training_virus.csv"
-histogram_path = "reports/histogram.png"
 pred_on_nontraining_path = "reports/positive_pred_on_nontraining_virus.csv"
 
 def main():
@@ -108,18 +106,9 @@ def main():
     vocab = Vocab(separate_len=separate_len)
 
     if not (os.path.exists(train_tfrecord_path) \
-            and os.path.exists(test_tfrecord_path)):
+            and os.path.exists(val_tfrecord_path)):
         print("================== PREPROCESSING ===================")
-
-        # データセットの前処理
-        x_train, x_test, y_train, y_test = \
-            preprocess_dataset(
-                motif_data=motif_data,
-                vocab=vocab)
-
-        # tf.data.Datasetとして保存
-        write_tfrecord(x_test, y_test, test_tfrecord_path)
-        write_tfrecord(x_train, y_train, train_tfrecord_path)
+        preprocess_dataset(motif_data=motif_data, vocab=vocab)
 
     model = create_model()
 
@@ -128,7 +117,7 @@ def main():
         train(model=model,
               seq_length=length - (separate_len - 1) + 1)
 
-    if not os.path.exists(histogram_path):
+    if not os.path.exists(pred_on_training_path):
         print("================== EVALUATION ======================")
         model.load_weights(os.path.dirname(checkpoint_path))
         evaluate(motif_data=motif_data,
@@ -179,16 +168,11 @@ def finish_making_dataset(motif_data):
     return finish
 
 def preprocess_dataset(motif_data, vocab):
-    columns = ['virus', 'protein', 'seq']
-    X_train = pd.DataFrame(columns=columns)
-    X_test = pd.DataFrame(columns=columns)
-    y_train = np.array([], dtype=np.int)
-    y_test = np.array([], dtype=np.int)
-
+    # アミノ酸配列・ラベルをDataFrameとして取り出す
+    df = pd.DataFrame(columns=['virus', 'protein', 'seq', 'label'])
     for content in motif_data:
         virusname = content['virus'].replace(' ', '_')
 
-        # アミノ酸断片データセットを読み込み
         for protein in content['protein_subnames'].keys():
             processed_path = os.path.join(os.path.join(
                     processed_dir, virusname), f'{protein}.pickle')
@@ -197,88 +181,112 @@ def preprocess_dataset(motif_data, vocab):
                 x = pickle.load(f)
                 y = pickle.load(f)
 
-            shuffle(x, y, seed)
+            df_partial = pd.DataFrame({
+                'virus': [virusname] * len(x),
+                'protein': [protein] * len(x),
+                'seq': x,
+                'label': y})
+            df = pd.concat((df, df_partial))
 
-            # 評価用データセットとしてunder-samplingしていないデータを残しておく
-            n_eval_ds = math.floor(len(x) * eval_rate)
-            x_eval, y_eval = x[:n_eval_ds], y[:n_eval_ds]
-            x, y = x[n_eval_ds:], y[n_eval_ds:]
+    # 評価用データセットを各タンパク質ごとに等しい割合で抽出
+    df_test, df = divide_df(df, keys=['virus', 'protein'], rate=test_rate)
 
-            x_eval = vocab.encode(x_eval)
+    # 評価用データセットをウイルス・タンパク質毎に保存
+    for (virus, protein), group in df_test.groupby(['virus', 'protein']):
+        test_tfrecord_path = os.path.join(os.path.join(
+                test_tfrecord_dir, virus), f'{protein}.tfrecord')
+        os.makedirs(os.path.dirname(test_tfrecord_path), exist_ok=True)
+        write_tfrecord(vocab.encode(group['seq']),
+                       group['label'].to_numpy(dtype=int),
+                       test_tfrecord_path)
 
-            eval_tfrecord_path = os.path.join(os.path.join(
-                    eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
-            os.makedirs(os.path.dirname(eval_tfrecord_path), exist_ok=True)
-            write_tfrecord(x_eval, y_eval, eval_tfrecord_path)
+    # 検証用データと訓練用データを分割
+    df_val, df_train = divide_df(df, keys=['virus', 'protein'], rate=val_rate)
 
-            # データセットを学習用と検証用に分割
-            n_val_ds = math.floor(len(x) * val_rate)
+    # 学習データセットの数を集計
+    count_dataset(df_train)
 
-            df_train = pd.DataFrame({
-                'virus': [virusname] * (len(x) - n_val_ds),
-                'protein': [protein] * (len(x) - n_val_ds),
-                'seq': np.squeeze(x[n_val_ds:])})
-            X_train = pd.concat((X_train, df_train))
-            y_train = np.hstack((y_train, y[n_val_ds:]))
+    df_train = get_sample_weights(df_train)
 
-            df_test = pd.DataFrame({
-                'virus': [virusname] * n_val_ds,
-                'protein': [protein] * n_val_ds,
-                'seq': np.squeeze(x[:n_val_ds])})
-            X_test = pd.concat((X_test, df_test))
-            y_test = np.hstack((y_test, y[:n_val_ds]))
+    y_train = df_train['label'].to_numpy(dtype=int)
+    y_val = df_val['label'].to_numpy(dtype=int)
 
     # undersamplingの比率の計算(陰性を1/10に減らす)
     n_positive = (y_train == 1).sum()
     n_negative = (len(y_train) - n_positive) // 10
     sampling_strategy = n_positive / n_negative
 
-    # 陽性・陰性のサンプル数をjsonファイルとして記憶
-    # 学習で class weight を計算するときに利用する
-    dict = {'n_positive': int(n_positive), 'n_negative': int(n_negative)}
-    with open(n_pos_neg_path, 'w') as f:
-        json.dump(dict, f)
-
     # undersampling
-    X_train, y_train = under_sampling(X_train, y_train,
+    df_train, y_train = under_sampling(df_train, y_train,
                             sampling_strategy=sampling_strategy)
-    X_test, y_test = under_sampling(X_test, y_test,
+    df_val, y_val = under_sampling(df_val, y_val,
                             sampling_strategy=1.0)
 
-    # 学習データセットの数を集計
-    count_dataset(X_train, y_train, motif_data)
+    x_train = vocab.encode(df_train['seq'])
+    x_val = vocab.encode(df_val['seq'])
+    sample_weights = df_train['sample_weight'].to_numpy(dtype=float)
 
-    x_train = X_train['seq']
-    x_test = X_test['seq']
+    # tfrecordを保存
+    write_tfrecord(x_val, y_val, val_tfrecord_path)
+    write_tfrecord(x_train, y_train, train_tfrecord_path,
+                   sample_weights=sample_weights)
 
-    x_train, x_test = vocab.encode(x_train), vocab.encode(x_test)
+def divide_df(df, keys, rate):
+    """ DataFrameをグループごとに等しい割合で2つに分割する
 
-    # シャッフル
-    shuffle(x_test, y_test, seed)
-    shuffle(x_train, y_train, seed)
+    Args:
+        df(pd.DataFrame): 分割前のDataFrame
+        keys(str or list): グループ分けを行う列名
+        rate(floot): DataFrameをdf_Aとdf_Bのふたつに分割する
+            としたとき，df_AのDataFrameの割合を指定する．
 
-    return x_train, x_test, y_train, y_test
+    Returns:
+        (df_A(pd.DataFrame), df_B(pd.DataFrame)):
+            分割後のDataFrame.
 
-def count_dataset(X, y, motif_data):
+    """
+    df_A = pd.DataFrame(columns=df.columns)
+    df_B = pd.DataFrame(columns=df.columns)
+
+    for _, group in df.groupby(keys):
+        group = group.sample(frac=1)    # シャッフル
+        n = math.floor(len(group) * rate)
+        df_A = pd.concat((df_A, group[:n]))
+        df_B = pd.concat((df_B, group[n:]))
+
+    return df_A, df_B
+
+def count_dataset(df):
     """ データセット数を集計する """
-    column_combinations = []
-    for content in motif_data:
-        virus = content['virus'].replace(' ', '_')
-        for protein in content['protein_subnames'].keys():
-            column_combinations.append((virus, protein))
+    def n_positive(d):
+        return (d.label == 1).sum()
 
-    df = pd.DataFrame(columns=['virus', 'protein', 'n_positive', 'n_negative', 'total'])
+    table = pd.DataFrame({
+        'total': df.groupby(['virus', 'protein']).size(),
+        'n_positive': df.groupby(['virus', 'protein']).apply(n_positive)
+    })
 
-    for virus, protein in column_combinations:
-        n_positive = len(X[(y == 1) & (X['virus'] == virus) & (X['protein'] == protein)])
-        n_negative = len(X[(y == 0) & (X['virus'] == virus) & (X['protein'] == protein)])
-        total = n_positive + n_negative
+    table['n_negative'] = table['total'] - table['n_positive']
 
-        row = pd.Series([virus, protein, n_positive, n_negative, total],
-                index=df.columns)
-        df = df.append(row, ignore_index=True)
+    table.to_csv(dataset_size_path, index=True)
 
-    df.to_csv(dataset_size_path, index=False)
+def get_sample_weights(df):
+    """ 入力されたDataFrameにsample weightの列を追加 """
+    total = len(df)
+    n_positive = (df['label'] == 1).sum()
+    n_negative = total - n_positive
+    n_virus = len(df['virus'].unique())
+
+    df['sample_weight'] = df.groupby('virus')['label'].transform(
+            lambda s: n_virus * (s == 1).sum() / n_positive)
+    df.loc[df['label'] == 0, 'sample_weight'] = 1
+
+    positive_weight = total / (2.0 * n_positive)
+    negative_weight = total / (2.0 * n_negative)
+    df.loc[df['label'] == 1, 'sample_weight'] *= positive_weight
+    df.loc[df['label'] == 0, 'sample_weight'] *= negative_weight
+
+    return df
 
 def create_model():
     """ モデルを定義する """
@@ -304,19 +312,10 @@ def create_model():
     return model
 
 def train(model, seq_length):
-    # クラス重みを設定
-    with open(n_pos_neg_path, 'r') as f:
-        n_pos_neg = json.load(f)
-
-    total = n_pos_neg['n_positive'] + n_pos_neg['n_negative']
-    positive_weight = (1/n_pos_neg['n_positive']) * total / 2.0
-    negative_weight = (1/n_pos_neg['n_negative']) * total / 2.0
-    class_weight = {0: positive_weight, 1: negative_weight}
-
     train_ds = load_dataset(train_tfrecord_path,
                             batch_size=batch_size,
                             length=seq_length)
-    test_ds = load_dataset(test_tfrecord_path,
+    val_ds = load_dataset(val_tfrecord_path,
                             batch_size=batch_size,
                             length=seq_length)
 
@@ -326,26 +325,25 @@ def train(model, seq_length):
                 monitor='val_precision', mode='max', patience=5),
         tf.keras.callbacks.ReduceLROnPlateau(
                 monitor='val_precision', mode='max',
-                factor=0.2, patience=3)
+                factor=0.2, patience=3),
+        tf.keras.callbacks.ModelCheckpoint(
+                os.path.dirname(checkpoint_path),
+                monitor='val_precision',
+                mode='max',
+                save_best_only=True)
     ]
-
-    callbacks.append(tf.keras.callbacks.ModelCheckpoint(
-                         os.path.dirname(checkpoint_path),
-                         monitor='val_precision',
-                         mode='max', save_best_only=True))
 
     model.fit(x=train_ds,
             batch_size=batch_size,
             epochs=epochs,
-            validation_data=test_ds,
+            validation_data=val_ds,
             callbacks=callbacks,
             shuffle=True,
-            class_weight=class_weight,
             verbose=1)
 
 def evaluate(motif_data, model, seq_length, vocab):
-    if os.path.exists(result_on_training_data_path):
-        os.remove(result_on_training_data_path)
+    if os.path.exists(performance_evaluation_path):
+        os.remove(performance_evaluation_path)
 
     if os.path.exists(pred_on_training_path):
         os.remove(pred_on_training_path)
@@ -361,15 +359,15 @@ def evaluate(motif_data, model, seq_length, vocab):
         virusname = content['virus'].replace(' ', '_')
 
         for protein in content['protein_subnames'].keys():
-            eval_ds_path = os.path.join(os.path.join(
-                    eval_tfrecord_dir, virusname), f'{protein}.tfrecord')
+            test_ds_path = os.path.join(os.path.join(
+                    test_tfrecord_dir, virusname), f'{protein}.tfrecord')
 
-            eval_ds = load_dataset(eval_ds_path,
+            test_ds = load_dataset(test_ds_path,
                                    batch_size=batch_size,
                                    length=seq_length)
 
             cm = np.zeros((2, 2), dtype=np.int64)
-            for x, y_true in eval_ds:   # 評価用データセットをbatchごとに取り出す
+            for x, y_true in test_ds:   # 評価用データセットをbatchごとに取り出す
                 y_pred = model.predict_on_batch(x)
                 y_pred = np.squeeze(y_pred)
                 y_true = np.squeeze(y_true)
@@ -392,16 +390,8 @@ def evaluate(motif_data, model, seq_length, vocab):
                             index=df_cm.columns)
             df_cm = pd.concat([df_cm, pd.DataFrame(row).T])
 
-    df_cm.to_csv(result_on_training_data_path, index=False)
+    df_cm.to_csv(performance_evaluation_path, index=False)
     df_pos_pred.to_csv(pred_on_training_path)
-
-    # ヒストグラムの描画
-    median = df_pos_pred.y_pred.median()
-    x = df_pos_pred['y_pred']
-    n, _ , _ = plt.hist(x, bins=50)
-    plt.vlines(median, 0, max(n), color='red')
-    plt.xlabel('output value')
-    plt.savefig(histogram_path)
 
 def predict_on_nontraining_data(model, vocab):
     df_pos_pred = pd.DataFrame(columns=['species', 'description', 'output', 'seq'])
@@ -445,24 +435,6 @@ def predict_on_nontraining_data(model, vocab):
 
     df_pos_pred.to_csv(pred_on_nontraining_path, index=False)
 
-def apply_regular_expression(df):
-    with open(motif_re_path, 'r') as f:
-        motif_re = json.load(f)
-        pattern = motif_re[args.target_motif]
-
-    pattern = '.*' + pattern + '.*'
-    pattern = re.compile(pattern)
-
-    def pattern_match(seq):
-        if pattern.match(seq):
-            return True
-        else:
-            return False
-
-    rows_to_drop = ~df['seq'].map(pattern_match)
-    df = df.drop(df[rows_to_drop].index, inplace=True)
-
-    return df
 
 if __name__ == '__main__':
     main()
