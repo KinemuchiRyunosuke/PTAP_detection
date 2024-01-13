@@ -272,11 +272,16 @@ def count_dataset(df):
 
 def get_sample_weights(df):
     """ 入力されたDataFrameにsample weightの列を追加 """
-    total = len(df)
     n_virus = len(df['virus'].unique())
 
+    sqrt_sum = 0
+    for _, group in df.groupby(['virus', 'label']):
+        sqrt_sum += math.sqrt(len(group))
+
     df['sample_weight'] = df.groupby(['virus', 'label'])['label'].transform(\
-        lambda s: total / (2 * n_virus * s.count()))
+        lambda s: sqrt_sum / (2 * n_virus * math.sqrt(s.count())))
+
+    breakpoint()
 
     return df
 
