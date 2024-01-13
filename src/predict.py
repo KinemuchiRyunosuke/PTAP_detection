@@ -36,7 +36,7 @@ separate_len = 1
 rm_positive_neighbor = 0
 motif_neighbor = 0
 batch_size = 1024
-epochs = 50
+epochs = 5
 threshold = 0.5         # 陽性・陰性の閾値
 head_num = 8            # Transformerの並列化に関するパラメータ
 dropout_rate = 0.04
@@ -278,7 +278,7 @@ def get_sample_weights(df):
     n_virus = len(df['virus'].unique())
 
     df['sample_weight'] = df.groupby('virus')['label'].transform(
-            lambda s: n_virus * (s == 1).sum() / n_positive)
+            lambda s: n_positive / n_virus * (s == 1).sum())
     df.loc[df['label'] == 0, 'sample_weight'] = 1
 
     positive_weight = total / (2.0 * n_positive)
