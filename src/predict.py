@@ -273,18 +273,10 @@ def count_dataset(df):
 def get_sample_weights(df):
     """ 入力されたDataFrameにsample weightの列を追加 """
     total = len(df)
-    n_positive = (df['label'] == 1).sum()
-    n_negative = total - n_positive
     n_virus = len(df['virus'].unique())
 
-    df['sample_weight'] = df.groupby('virus')['label'].transform(
-            lambda s: n_positive / n_virus * (s == 1).sum())
-    df.loc[df['label'] == 0, 'sample_weight'] = 1
-
-    positive_weight = total / (2.0 * n_positive)
-    negative_weight = total / (2.0 * n_negative)
-    df.loc[df['label'] == 1, 'sample_weight'] *= positive_weight
-    df.loc[df['label'] == 0, 'sample_weight'] *= negative_weight
+    df['sample_weight'] = df.groupby(['virus', 'label'])['label'].transform(\
+        lambda s: total / (2 * n_virus * s.count()))
 
     return df
 
