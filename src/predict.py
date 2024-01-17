@@ -45,7 +45,7 @@ dropout_rate = 0.04
 hopping_num = 3         # Multi-Head Attentionを施す回数
 hidden_dim = 184        # 単語ベクトルの次元数
 lr = 2.60e-5            # 学習率
-beta = 0.5              # Fベータスコアの引数
+beta = 0.1              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
 eval_threshold = 0
 
@@ -391,12 +391,12 @@ def evaluate(motif_data, model, seq_length, vocab):
     precision, recall, threshold_from_pr = precision_recall_curve(
             y_true=df['y_true'].to_numpy().astype(np.float32),
             probas_pred=df['y_pred'].to_numpy().astype(np.float32))
-    a = 2 * precision * recall
-    b = precision + recall
-    f1 = np.divide(a, b, out=np.zeros_like(a), where=b!=0)
+    a = (1 + beta ** 2) * precision * recall
+    b = (beta ** 2) * precision + recall
+    f_beta = np.divide(a, b, out=np.zeros_like(a), where=b!=0)
 
     global eval_threshold
-    eval_threshold = np.max(f1)
+    eval_threshold = np.max(f_beta)
 
     # 各ウイルス・タンパク質毎に混同行列を計算
     df_cm = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
