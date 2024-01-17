@@ -1,4 +1,5 @@
 import os
+import copy
 import json
 import re
 import pickle
@@ -10,8 +11,9 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import datetime
 
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_recall_curve
 from Bio import SeqIO
 
 from dataset import Dataset
@@ -36,7 +38,7 @@ separate_len = 1
 rm_positive_neighbor = 0
 motif_neighbor = 0
 batch_size = 1024
-epochs = 5
+epochs = 20
 threshold = 0.5         # 陽性・陰性の閾値
 head_num = 8            # Transformerの並列化に関するパラメータ
 dropout_rate = 0.04
@@ -45,6 +47,7 @@ hidden_dim = 184        # 単語ベクトルの次元数
 lr = 2.60e-5            # 学習率
 beta = 0.5              # Fベータスコアの引数
 seed = 1                # データセットをシャッフルするときのseed値
+eval_threshold = 0
 
 if args.test:
     batch_size = 100000
@@ -64,8 +67,11 @@ motif_re_path = "references/motif_regular_expression.json"
 checkpoint_path = "models/saved_model.pb"
 performance_evaluation_path = "reports/performance_evaluation.csv"
 dataset_size_path = "reports/dataset_size.csv"
-pred_on_training_path = "reports/positive_pred_on_training_virus.csv"
+ys_pred_true_path = "reports/ys_pred_true.pickle"
+pred_on_val_path = "reports/pred_on_val.csv"
 pred_on_nontraining_path = "reports/positive_pred_on_nontraining_virus.csv"
+parameters_path = "reports/parameters.json"
+
 
 def main():
     gpus = tf.config.list_physical_devices(device_type='GPU')
@@ -117,13 +123,16 @@ def main():
         train(model=model,
               seq_length=length - (separate_len - 1) + 1)
 
-    if not os.path.exists(pred_on_training_path):
+    if not os.path.exists(pred_on_val_path):
         print("================== EVALUATION ======================")
         model.load_weights(os.path.dirname(checkpoint_path))
         evaluate(motif_data=motif_data,
                  model=model,
                  seq_length=length - separate_len + 2,
                  vocab=vocab)
+
+    # パラメータを保存
+    save_parameters()
 
     print("=========== PREDICT ON NON-TRAINING DATA ===========")
     predict_on_nontraining_data(model=model,
@@ -273,13 +282,18 @@ def count_dataset(df):
 def get_sample_weights(df):
     """ 入力されたDataFrameにsample weightの列を追加 """
     total = len(df)
+    n_positive = (df['label'] == 1).sum()
+    n_negative = total - n_positive
+    n_virus = len(df['virus'].unique())
 
-    sqrt_sum = 0
-    for _, group in df.groupby(['virus', 'label']):
-        sqrt_sum += math.sqrt(len(group))
+    df['sample_weight'] = df.groupby('virus')['label'].transform(
+            lambda s: n_positive / (n_virus * (s == 1).sum()))
+    df.loc[df['label'] == 0, 'sample_weight'] = 1
 
-    df['sample_weight'] = df.groupby(['virus', 'label'])['label'].transform(\
-        lambda s: total / (sqrt_sum * math.sqrt(s.count())))
+    positive_weight = total / (2.0 * n_positive)
+    negative_weight = total / (2.0 * n_negative)
+    df.loc[df['label'] == 1, 'sample_weight'] *= positive_weight
+    df.loc[df['label'] == 0, 'sample_weight'] *= negative_weight
 
     return df
 
@@ -317,7 +331,7 @@ def train(model, seq_length):
     # 学習
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
-                monitor='val_precision', mode='max', patience=5),
+                monitor='val_precision', mode='max', patience=2),
         tf.keras.callbacks.ReduceLROnPlateau(
                 monitor='val_precision', mode='max',
                 factor=0.2, patience=3),
@@ -340,16 +354,11 @@ def evaluate(motif_data, model, seq_length, vocab):
     if os.path.exists(performance_evaluation_path):
         os.remove(performance_evaluation_path)
 
-    if os.path.exists(pred_on_training_path):
-        os.remove(pred_on_training_path)
-
-    # 各ウイルス・タンパク質毎に混同行列を計算
-    df_cm = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
-    df_cm.astype({'tn':'int', 'fp':'int', 'fn':'int', 'tp':'int'})
+    if os.path.exists(pred_on_val_path):
+        os.remove(pred_on_val_path)
 
     # 陽性と判定されたデータの情報を保存
-    df_pos_pred = pd.DataFrame(columns=['virus', 'protein', 'y_pred', 'y_true', 'seq'])
-
+    df = pd.DataFrame(columns=['virus', 'protein', 'y_pred', 'y_true', 'seq'])
     for content in motif_data:
         virusname = content['virus'].replace(' ', '_')
 
@@ -368,25 +377,40 @@ def evaluate(motif_data, model, seq_length, vocab):
                 y_true = np.squeeze(y_true)
 
                 df_partial = \
-                    pd.DataFrame([[virusname] * len(y_pred[y_pred > threshold]),
-                                 [protein] * len(y_pred[y_pred > threshold]),
-                                 y_pred[y_pred > threshold],
-                                 y_true[y_pred > threshold],
-                                 vocab.decode(x[y_pred > threshold])],
-                                 index=df_pos_pred.columns)
-                df_pos_pred = pd.concat([df_pos_pred, df_partial.T])
+                    pd.DataFrame([[virusname] * len(y_pred),
+                                 [protein] * len(y_pred),
+                                 y_pred,
+                                 y_true,
+                                 vocab.decode(x)],
+                                 index=df.columns)
+                df = pd.concat([df, df_partial.T])
 
-                y_pred = (y_pred > threshold).astype(int)
-                cm += confusion_matrix(y_true, y_pred, labels=[0, 1])
+    df.to_csv(pred_on_val_path)
 
-            # 評価結果をDataFrameに保存
-            row = pd.Series([virusname, protein,
-                                cm[0,0], cm[0,1], cm[1,0], cm[1,1]],
-                            index=df_cm.columns)
-            df_cm = pd.concat([df_cm, pd.DataFrame(row).T])
+    # f1スコアを最適化する閾値を計算
+    precision, recall, threshold_from_pr = precision_recall_curve(
+            y_true=df['y_true'].to_numpy().astype(np.float32),
+            probas_pred=df['y_pred'].to_numpy().astype(np.float32))
+    a = 2 * precision * recall
+    b = precision + recall
+    f1 = np.divide(a, b, out=np.zeros_like(a), where=b!=0)
 
-    df_cm.to_csv(performance_evaluation_path, index=False)
-    df_pos_pred.to_csv(pred_on_training_path)
+    global eval_threshold
+    eval_threshold = np.max(f1)
+
+    # 各ウイルス・タンパク質毎に混同行列を計算
+    df_cm = pd.DataFrame(columns=['virus', 'protein', 'tn', 'fp', 'fn', 'tp'])
+    df_cm.astype({'tn':'int', 'fp':'int', 'fn':'int', 'tp':'int'})
+
+    for (virus, protein), group in df.groupby(['virus', 'protein']):
+        cm = confusion_matrix(group['y_true'].to_numpy().astype(int),
+                              (group['y_pred'] > eval_threshold).astype(int),
+                              labels=[0, 1])
+        row = pd.Series([virus, protein, cm[0,0], cm[0,1], cm[1,0], cm[1,1]],
+                        index=df_cm.columns)
+        df_cm = pd.concat([df_cm, pd.DataFrame(row).T])
+
+    df_cm.to_csv(performance_evaluation_path)
 
 def predict_on_nontraining_data(model, vocab):
     df_pos_pred = pd.DataFrame(columns=['species', 'description', 'output', 'seq'])
@@ -416,8 +440,8 @@ def predict_on_nontraining_data(model, vocab):
             y_pred = model.predict_on_batch(x)
             y_pred = np.squeeze(y_pred)
 
-            x = x[y_pred > threshold]
-            y_pred = y_pred[y_pred > threshold]
+            x = x[y_pred > eval_threshold]
+            y_pred = y_pred[y_pred > eval_threshold]
 
             df = pd.DataFrame({
                 'species': [species] * len(x),
@@ -429,6 +453,35 @@ def predict_on_nontraining_data(model, vocab):
             df_pos_pred = pd.concat((df_pos_pred, df))
 
     df_pos_pred.to_csv(pred_on_nontraining_path, index=False)
+
+def save_parameters():
+    parameters = {}
+
+    # 現在時刻を保存
+    parameters['date'] = str(datetime.datetime.now())
+
+    parameters['length'] = globals()['length']
+    parameters['n_gram'] = globals()['n_gram']
+    parameters['test_rate'] = globals()['test_rate']
+    parameters['val_rate'] = globals()['val_rate']
+    parameters['num_amino_acid'] = globals()['num_amino_acid']
+    parameters['separate_len'] = globals()['separate_len']
+    parameters['rm_positive_neighbor'] = globals()['rm_positive_neighbor']
+    parameters['motif_neighbor'] = globals()['motif_neighbor']
+    parameters['batch_size'] = globals()['batch_size']
+    parameters['epochs'] = globals()['epochs']
+    parameters['threshold'] = globals()['threshold']
+    parameters['head_num'] = globals()['head_num']
+    parameters['dropout_rate'] = globals()['dropout_rate']
+    parameters['hopping_num'] = globals()['hopping_num']
+    parameters['hidden_dim'] = globals()['hidden_dim']
+    parameters['lr'] = globals()['lr']
+    parameters['beta'] = globals()['beta']
+    parameters['seed'] = globals()['seed']
+    parameters['eval_threshold'] = globals()['eval_threshold']
+
+    with open(parameters_path, 'w') as f:
+        json.dump(parameters, f, indent=2)
 
 
 if __name__ == '__main__':
